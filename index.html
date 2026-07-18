@@ -734,46 +734,7 @@
   </div>
 </div>
 
-<div class="modal-backdrop" id="calModalBackdrop">
-  <div class="modal" style="width:460px;">
-    <div class="modal-head">
-      <span>ECONOMIC CALENDAR — AUTO & MANUAL EVENTS</span>
-      <button class="modal-close" id="calModalClose">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div id="calFetchWarning" style="display:none;background:rgba(209,73,91,0.15);border:1px solid var(--bear);padding:6px 10px;border-radius:4px;font-size:11px;color:var(--bear);margin-bottom:10px;"></div>
-      
-      <!-- Auto-fetch settings / currency filter -->
-      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:10px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;">
-          <span>🔌 ForexFactory Auto-Fetch:</span>
-          <button class="draw-btn" id="calSyncBtn" style="padding:4px 8px;font-size:10px;margin:0;">🔄 Sync Now</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
-          <input type="checkbox" id="calFilterCheckbox" checked style="width:auto;margin:0;cursor:pointer;">
-          <label for="calFilterCheckbox" style="cursor:pointer;margin:0;">Show USD & XAU events only</label>
-        </div>
-        <div style="font-size:10px;color:var(--txt-dim);" id="calSyncStatus">Status: Fetching…</div>
-      </div>
 
-      <div class="cal-note">Events are auto-fetched from ForexFactory. Actual releases trigger automated bias alerts (sound + toast). You can also manually log any custom event below.</div>
-      <label>Event name<input type="text" id="calName" placeholder="e.g. US CPI (YoY)"></label>
-      <label>Date &amp; time (UTC)<input type="datetime-local" id="calTime"></label>
-      <div style="display:flex;gap:8px;">
-        <label style="flex:1;">Forecast<input type="number" step="0.01" id="calForecast"></label>
-        <label style="flex:1;">Previous<input type="number" step="0.01" id="calPrevious"></label>
-      </div>
-      <label>Bias rule for gold
-        <select id="calRule">
-          <option value="lowerBullish">Actual LOWER than forecast → bullish for gold</option>
-          <option value="higherBullish">Actual HIGHER than forecast → bullish for gold</option>
-        </select>
-      </label>
-      <button class="draw-btn" id="calAddBtn" style="align-self:flex-start;">+ Add Event</button>
-      <div id="calList" class="cal-list"></div>
-    </div>
-  </div>
-</div>
 
 <div class="modal-backdrop" id="alertModalBackdrop">
   <div class="modal">
@@ -813,30 +774,7 @@
   </div>
 </div>
 
-<div class="modal-backdrop" id="journalModalBackdrop">
-  <div class="modal" style="width:440px;">
-    <div class="modal-head">
-      <span>TRADE JOURNAL</span>
-      <button class="modal-close" id="journalModalClose">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div style="display:flex;gap:8px;">
-        <label style="flex:1;">Direction
-          <select id="jrDir"><option value="long">Long</option><option value="short">Short</option></select>
-        </label>
-        <label style="flex:1;">Result ($)<input type="number" step="0.01" id="jrResult" placeholder="e.g. 120 or -45"></label>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <label style="flex:1;">Entry<input type="number" step="0.01" id="jrEntry"></label>
-        <label style="flex:1;">Exit<input type="number" step="0.01" id="jrExit"></label>
-      </div>
-      <label>Reason / notes<input type="text" id="jrNotes" placeholder="e.g. OB retest after CHoCH"></label>
-      <button class="draw-btn" id="jrAddBtn" style="align-self:flex-start;">+ Log Trade</button>
-      <div class="risk-out" id="jrSummary">No trades logged yet.</div>
-      <div id="jrList" class="cal-list"></div>
-    </div>
-  </div>
-</div>
+
 
 <div class="toast" id="alertToast"></div>
 
@@ -4554,5 +4492,5 @@
   });
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d1f43bfcc77182',t:'MTc4NDM4MjYxMQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d1f9f21d602061',t:'MTc4NDM4Mjg0NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
