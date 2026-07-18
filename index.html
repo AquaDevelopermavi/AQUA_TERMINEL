@@ -392,19 +392,6 @@
     overflow: hidden !important;
   }
 
-  /* Cross-page Navigation Links */
-  .nav-links{display:flex; gap:6px; flex-wrap:wrap;}
-  .nav-link{
-    background:transparent; border:1px solid transparent; color:var(--txt-dim);
-    padding:6px 14px; border-radius:6px; font-size:12px; font-weight:700;
-    text-decoration:none; font-family:'Space Grotesk', sans-serif;
-    cursor:pointer;
-  }
-  .nav-link.active{
-    background:var(--panel2); border-color:var(--line); color:var(--gold);
-    box-shadow: 0 0 10px rgba(57,255,20,0.15);
-  }
-  .nav-link:hover:not(.active){color:var(--txt); background:rgba(255,255,255,0.02);}
 </style>
 </head>
 <body>
@@ -468,18 +455,7 @@
       <div class="l" id="priceChange">--</div>
     </div>
   </div>
-  <div class="nav-header">
-  <div class="nav-links">
-      <a href="index.html" class="nav-link active">TERMINAL</a>
-      <a href="liquidity.html" class="nav-link">LIQUIDITY HEATMAP</a>
-      <a href="volume.html" class="nav-link">VOLUME PROFILE</a>
-      <a href="fvgob.html" class="nav-link">FVG & OB</a>
-      <a href="calendar.html" class="nav-link">ECONOMIC CALENDAR</a>
-      <a href="journal.html" class="nav-link">TRADE JOURNAL</a>
-    </div>
-  </div>
-
-
+  
   <div class="session-strip" id="goldStrip">
     <div class="pulse" id="pulseDot"></div>
     <span id="sessionText"><b>—</b></span>
@@ -606,6 +582,22 @@
           <button class="draw-btn" id="calPrevWeekBtn" style="padding:4px 10px; font-size:10px; margin:0;">◀ Previous Week</button>
           <div style="font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:bold; color:var(--gold);" id="calDateRangeLabel">JULY 12 - JULY 18, 2026</div>
           <button class="draw-btn" id="calNextWeekBtn" style="padding:4px 10px; font-size:10px; margin:0;">Next Week ▶</button>
+        </div>
+
+        <div style="font-size:11px;font-weight:bold;color:var(--gold);margin:2px 0;">🌐 LIVE ECONOMIC CALENDAR (Real-time, ForexFactory-style)</div>
+        <div class="tradingview-widget-container" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-shrink:0;">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
+          {
+          "colorTheme": "dark",
+          "isTransparent": true,
+          "width": "100%",
+          "height": "420",
+          "locale": "en",
+          "importanceFilter": "-1,0,1",
+          "countryFilter": "us,eu,gb,jp,cn,au,ca,ch,nz"
+          }
+          </script>
         </div>
 
         <!-- Auto-fetch settings / filter -->
