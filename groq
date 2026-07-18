@@ -1,0 +1,17 @@
+{
+  "colors": {
+    "bg": "#0a100c",
+    "panel": "#101612",
+    "gold": "#39ff14",
+    "bull": "#f4fff4",
+    "bear": "#39ff14"
+  },
+  "strategies": [
+    {
+      "id": "ictmacros_cloud",
+      "name": "ICT Macros (Cloud)",
+      "desc": "Algorithmic macro time window entries injected dynamically from your GitHub Gist without redeploying!",
+      "findFunction": "const out = []; state.fvgs.forEach(z => { if (z.startIdx >= state.candles.length) return; const c = state.candles[z.startIdx]; const nyStr = new Date(c.time * 1000).toLocaleString('en-US', { timeZone: 'America/New_York' }); const dt = new Date(nyStr); const hrs = dt.getHours(); const mins = dt.getMinutes(); const v = hrs * 100 + mins; if ((v >= 850 && v <= 910) || (v >= 1000 && v <= 1100)) { out.push({ idx: z.startIdx, price: (z.top + z.bottom) / 2, type: z.type }); } }); return out;"
+    }
+  ]
+}
