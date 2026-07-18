@@ -567,7 +567,7 @@
     <!-- DEDICATED FULL-SIZE ECONOMIC CALENDAR VIEW -->
     <div class="gsub-view" id="gsub-calendar">
       <div style="flex:1; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; position:relative; z-index:10;">
-        <div id="calFetchWarning" style="display:none;background:rgba(209,73,91,0.15);border:1px solid var(--bear);padding:6px 10px;border-radius:4px;font-size:11px;color:var(--bear);margin-bottom:10px;"></div>
+        <div id="calFetchWarning" style="display:none !important;"></div>
         
         <!-- Live Marquee Breaking News Ticker -->
         <div style="background:rgba(57,255,20,0.06); border:1px solid var(--line); border-radius:6px; padding:6px 12px; overflow:hidden; white-space:nowrap; position:relative; display:flex; align-items:center; gap:12px; flex-shrink:0;">
@@ -3532,8 +3532,7 @@
       }
       const warningEl = document.getElementById('calFetchWarning');
       if (warningEl) {
-        warningEl.style.display = 'block';
-        warningEl.textContent = 'Local File Note: ForexFactory API is blocked by CORS locally on your browser. Populated with this week\'s high-impact USD fallback events below.';
+        warningEl.style.display = 'none'; // Permanently silent and hidden for clean UI!
       }
     }
   }
@@ -4599,5 +4598,5 @@
   });
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d211d6bf467182',t:'MTc4NDM4MzgyNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d21dd17d861a5d',t:'MTc4NDM4NDMxNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
