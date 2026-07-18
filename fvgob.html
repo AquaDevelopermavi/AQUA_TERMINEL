@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aqua Terminal - FVG & Order Blocks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root{
+    --bg: #0a100c;          /* Deep Blackish Forest Green */
+    --panel: #101612;       /* Translucent Deep Emerald Black */
+    --panel2: #16201a;      /* Secondary Container Dark */
+    --line: #223028;        /* Subtle Border Forest Green */
+    --gold: #39ff14;        /* Electric Neon Lime Green Accent */
+    --gold-dim: #26b30f;    /* Muted Neon Lime */
+    --bull: #f4fff4;        /* Glowing Mint White */
+    --bear: #39ff14;        /* Electric Neon Lime Green */
+    --txt: #f4fff4;         /* High Contrast Off-White Mint */
+    --txt-dim: #6d8075;     /* Muted Sage/Forest Gray */
+    --asian: #2962ff;
+    --london: #9c27b0;
+    --ny: #ff9800;
+  }
+    *{box-sizing:border-box;}
+  
+  /* Custom Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--txt-dim);
+  }
+
+  html, body{
+    margin:0;
+    background:var(--bg);
+    color:var(--txt);
+    font-family:'Space Grotesk', sans-serif;
+    overflow-y:auto;
+    overflow-x:hidden;
+    height:100%;
+  }
+  .num{font-family:'JetBrains Mono', monospace;}
+
+  .app{display:flex;flex-direction:column;min-height:100vh;height:100vh;}
+
+  /* Sticky Navigation Header */
+  .nav-header{
+    display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+    padding:12px 20px;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .brand{display:flex;align-items:center;gap:12px;margin-right:8px;}
+  .brand-mark{
+    width:28px;height:38px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .brand-mark img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 8px rgba(57,255,20,0.5));}
+  .brand-txt{font-weight:700;letter-spacing:0.8px;font-size:15px; color:var(--txt);}
+  .brand-sub{font-size:9px;color:var(--txt-dim);letter-spacing:1.5px;margin-top:-1px;font-weight:600;}
+
+  .nav-links{display:flex; gap:6px;}
+  .nav-link{
+    background:transparent; border:1px solid transparent; color:var(--txt-dim);
+    padding:6px 14px; border-radius:6px; font-size:12px; font-weight:700;
+    text-decoration:none; font-family:'Space Grotesk', sans-serif;
+    cursor:pointer;
+  }
+  .nav-link.active{
+    background:var(--panel2); border-color:var(--line); color:var(--gold);
+    box-shadow: 0 0 10px rgba(57,255,20,0.15);
+  }
+  .nav-link:hover:not(.active){color:var(--txt); background:rgba(255,255,255,0.02);}
+
+  .spacer{flex:1;}
+  .price-badge{
+    display:flex;flex-direction:column;align-items:flex-end;
+  }
+  .price-badge .p{font-family:'JetBrains Mono', monospace;font-size:20px;font-weight:700; letter-spacing:-0.5px;}
+  .price-badge .p.up{color:var(--bull); text-shadow: 0 0 12px rgba(244,255,244,0.25);}
+  .price-badge .p.down{color:var(--bear); text-shadow: 0 0 12px rgba(57,255,20,0.25);}
+  .price-badge .l{font-size:10px;color:var(--txt-dim);letter-spacing:1px;font-weight:600;}
+
+  /* Summary strip style */
+  .summary-strip {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: #08090d;
+    border-bottom: 1px solid var(--line);
+    padding: 8px 20px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--txt-dim);
+    flex-wrap: wrap;
+    z-index: 10;
+    position: relative;
+    font-weight: 500;
+  }
+  .summary-strip .val {
+    color: var(--gold);
+    font-weight: 700;
+  }
+  .summary-strip .bull {
+    color: var(--bull);
+    font-weight: 700;
+  }
+  .summary-strip .bear {
+    color: var(--bear);
+    font-weight: 700;
+  }
+
+  /* Main area */
+  .main{flex:1;display:flex;overflow:hidden;position:relative;}
+  .chart-wrap{flex:1;position:relative;}
+  #fvgobChartEl{position:absolute;inset:0;}
+  #fvgobOverlay{position:absolute;inset:0;pointer-events:none;}
+
+  .legend{
+    position:absolute;bottom:16px;left:16px;
+    display:flex;flex-direction:column;gap:5px;
+    font-size:10px;color:var(--txt-dim);pointer-events:none;
+    font-family:'JetBrains Mono', monospace;
+    background: rgba(16,22,18,0.85);
+    padding:10px 14px;
+    border-radius:8px;
+    border: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+  }
+  .legend div{display:flex;align-items:center;gap:8px;}
+  .legend .sw{width:10px;height:10px;border-radius:2px;}
+  .toast{
+    position:fixed;bottom:24px;right:24px;z-index:60;
+    background:var(--panel);
+    border:1px solid var(--gold);border-radius:8px;padding:14px 20px;
+    font-family:'JetBrains Mono', monospace;font-size:12px;color:var(--txt);
+    box-shadow:0 12px 36px rgba(0,0,0,0.6);
+    transform:translateY(20px);opacity:0;pointer-events:none;max-width:340px;
+  }
+  .toast.show{transform:translateY(0);opacity:1;}
+  /* Cybercore Background Beams Styles */
+  @keyframes rise {
+    0% { transform: translateY(110vh); opacity: 0; }
+    10% { opacity: 0.8; }
+    100% { transform: translateY(-130vh); opacity: 0; }
+  }
+  @keyframes fade {
+    0%, 100% { opacity: 0; }
+    5%, 85% { opacity: 0.6; }
+  }
+  .cybercore-beam {
+    position: absolute;
+    bottom: -250px;
+    background: linear-gradient(to top, transparent, var(--gold));
+    opacity: 0;
+    animation: rise linear infinite, fade ease-in-out infinite;
+    pointer-events: none;
+  }
+  .cybercore-beam.secondary {
+    background: linear-gradient(to top, transparent, #f4fff4);
+  }
+
+  /* Neon Button Hover Glow Border Lines */
+  .tf-btn, .draw-btn, .nav-link {
+    position: relative !important;
+    overflow: visible !important;
+  }
+  .tf-btn::before, .draw-btn::before, .nav-link::before {
+    content: '';
+    position: absolute;
+    left: 12.5%;
+    top: 0;
+    height: 1px;
+    width: 75%;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  .tf-btn::after, .draw-btn::after, .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 12.5%;
+    bottom: 0;
+    height: 1px;
+    width: 75%;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  .tf-btn:hover::before, .tf-btn:hover::after,
+  .draw-btn:hover::before, .draw-btn:hover::after,
+  .nav-link:hover::before, .nav-link:hover::after {
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Shared Premium Navigation Header -->
+  <div class="nav-header">
+    <div class="brand">
+      <div class="brand-mark"><img src="data:image/png;base64,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(t) }," alt="Aqua Terminal"></div>
+      <div>
+        <div class="brand-txt">AQUA TERMINAL</div>
+        <div class="brand-sub">XAU / USD &middot; PROFESSIONAL</div>
+      </div>
+    </div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">TERMINAL</a>
+      <a href="liquidity.html" class="nav-link">LIQUIDITY HEATMAP</a>
+      <a href="volume.html" class="nav-link">VOLUME PROFILE</a>
+      <a href="fvgob.html" class="nav-link active">FVG & OB</a>
+      <a href="calendar.html" class="nav-link">ECONOMIC CALENDAR</a>
+      <a href="journal.html" class="nav-link">TRADE JOURNAL</a>
+    </div>
+    <div class="spacer"></div>
+    <div class="price-badge">
+      <div class="p num" id="priceNow">--</div>
+      <div class="l" id="priceChange">--</div>
+    </div>
+  </div>
+
+  <!-- ALWAYS-VISIBLE SUMMARY STRIP -->
+  <div class="summary-strip" id="summaryStrip">
+    <div>📊 TODAY'S SUMMARY:</div>
+    <div>Signals Fired Today: <span class="val" id="sumSignalsCount">0</span></div>
+    <div>Open Paper Trades: <span class="val" id="sumOpenTrades">0</span></div>
+    <div>Today's Win Rate: <span class="val" id="sumWinRate">0%</span></div>
+    <div>Today's PnL: <span id="sumPnL" style="font-weight:bold;">$0.00</span></div>
+  </div>
+
+  <!-- DEDICATED ALWAYS-VISIBLE STRATEGY SELECTION BAR -->
+  <div id="strategyBarContainer" style="background:var(--panel2);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap;z-index:5;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:bold;color:var(--gold);">🎯 SELECT STRATEGY FOR CHARTS & BACKTEST:</span>
+    <select id="strategySelect" style="background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;outline:none;">
+      <option value="">STRATEGY: NONE (ALL INDICATORS ACTIVE)</option>
+    </select>
+  </div>
+
+  <!-- Main area -->
+  <div class="main">
+    <div class="chart-wrap">
+      <div id="fvgobChartEl"></div>
+      <canvas id="fvgobOverlay"></canvas>
+      <div class="legend">
+        <div><span class="sw" style="background:rgba(244,255,244,0.35);border:1px solid #f4fff4;"></span>Bullish FVG</div>
+        <div><span class="sw" style="background:rgba(57,255,20,0.35);border:1px solid #39ff14;"></span>Bearish FVG</div>
+        <div><span class="sw" style="background:rgba(244,255,244,0.3);border:1px solid #f4fff4;"></span>Bullish OB</div>
+        <div><span class="sw" style="background:rgba(57,255,20,0.3);border:1px solid #39ff14;"></span>Bearish OB</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="alertToast"></div>
+
+<script>
+// ---------- SHARED STATE UTILITIES ----------
+const STATE_KEYS = {
+  CANDLES: 'aquaCandles',
+  AUTO_TRADES: 'aquaAutoPaperTrades',
+  SIGNALS_COUNT: 'aquaSignalsFiredCount',
+  SIGNALS_DATE: 'aquaSignalsFiredDate',
+  STRATEGY: 'aquaSelectedStrategy'
+};
+
+const state = {
+  tf: 60,
+  candles: [],
+  fvgs: [],
+  ifvgs: [],
+  obs: [],
+  bos: [],
+  sweeps: [],
+  entries: [],
+  strategy: '',
+  live: true,
+  signalsFiredCount: 0,
+  autoPaperTrades: [],
+  alertedAutoTrades: new Set(),
+  ind: { poi: true },
+  ind2: { fvg: true, ob: true }
+};
+
+function loadGlobalState() {
+  try {
+    state.candles = JSON.parse(localStorage.getItem(STATE_KEYS.CANDLES)) || [];
+    state.autoPaperTrades = JSON.parse(localStorage.getItem(STATE_KEYS.AUTO_TRADES)) || [];
+    state.strategy = JSON.parse(localStorage.getItem(STATE_KEYS.STRATEGY)) || '';
+    
+    const todayStr = new Date().toDateString();
+    const savedDate = localStorage.getItem(STATE_KEYS.SIGNALS_DATE);
+    if (savedDate === todayStr) {
+      state.signalsFiredCount = parseInt(localStorage.getItem(STATE_KEYS.SIGNALS_COUNT)) || 0;
+    } else {
+      state.signalsFiredCount = 0;
+    }
+  } catch (e) {
+    console.warn('Error loading state', e);
+  }
+}
+
+loadGlobalState();
+
+// ---------- INDICATORS & CALCULATIONS ----------
+function findFVGs(candles){
+  const zones = [];
+  for(let i=2;i<candles.length;i++){
+    const c1=candles[i-2], c3=candles[i];
+    if(c1.high < c3.low){
+      zones.push({type:'bull', startIdx:i-2, endIdx:i, top:c3.low, bottom:c1.high});
+    } else if(c1.low > c3.high){
+      zones.push({type:'bear', startIdx:i-2, endIdx:i, top:c1.low, bottom:c3.high});
+    }
+  }
+  zones.forEach(z=>{
+    let extendIdx = Math.min(z.endIdx+120, candles.length-1);
+    let filled=false;
+    for(let j=z.endIdx+1;j<candles.length;j++){
+      const c=candles[j];
+      if(z.type==='bull' && c.low<=z.top){ filled=true; extendIdx=j; break; }
+      if(z.type==='bear' && c.high>=z.bottom){ filled=true; extendIdx=j; break; }
+    }
+    z.filled=filled; z.extendIdx=extendIdx;
+  });
+  return zones.slice(-150);
+}
+
+function findInverseFVGs(candles, fvgZones){
+  const out = [];
+  fvgZones.forEach(z=>{
+    for(let j=z.endIdx+1;j<candles.length;j++){
+      const c = candles[j];
+      if(z.type==='bull' && c.close<z.bottom){
+        out.push({type:'bear', startIdx:z.startIdx, endIdx:j, top:z.top, bottom:z.bottom});
+        break;
+      }
+      if(z.type==='bear' && c.close>z.top){
+        out.push({type:'bull', startIdx:z.startIdx, endIdx:j, top:z.top, bottom:z.bottom});
+        break;
+      }
+    }
+  });
+  return out.slice(-14);
+}
+
+function findOrderBlocks(candles){
+  const bodies = candles.map(c=>Math.abs(c.close-c.open));
+  const avgBody = bodies.reduce((a,b)=>a+b,0)/bodies.length;
+  const blocks = [];
+  for(let i=1;i<candles.length;i++){
+    const cur=candles[i], prev=candles[i-1];
+    const body=Math.abs(cur.close-cur.open);
+    if(body > avgBody*1.7){
+      if(cur.close>cur.open && prev.close<prev.open){
+        blocks.push({type:'bull', idx:i-1, top:Math.max(prev.open, prev.close), bottom:prev.low});
+      } else if(cur.close<cur.open && prev.close>prev.open){
+        blocks.push({type:'bear', idx:i-1, top:prev.high, bottom:Math.min(prev.open, prev.close)});
+      }
+    }
+  }
+  blocks.forEach(ob=>{
+    let extendIdx = Math.min(ob.idx+120, candles.length-1);
+    let touched=false;
+    for(let j=ob.idx+2;j<candles.length;j++){
+      const c=candles[j];
+      if(c.low<=ob.top && c.high>=ob.bottom){ touched=true; extendIdx=j; break; }
+    }
+    ob.touched=touched; ob.extendIdx=extendIdx;
+  });
+  return blocks.slice(-50);
+}
+
+function findSwingPivots(candles, lookback){
+  lookback = lookback || 5;
+  const highs=[], lows=[];
+  for(let i=lookback;i<candles.length-lookback;i++){
+    const c = candles[i];
+    let isHigh=true, isLow=true;
+    for(let k=1;k<=lookback;k++){
+      if(candles[i-k].high>=c.high || candles[i+k].high>=c.high) isHigh=false;
+      if(candles[i-k].low<=c.low || candles[i+k].low<=c.low) isLow=false;
+    }
+    if(isHigh) highs.push({idx:i, price:c.high});
+    if(isLow) lows.push({idx:i, price:c.low});
+  }
+  return { highs, lows };
+}
+
+function findLiquidity(candles){
+  const { highs, lows } = findSwingPivots(candles);
+  const tol = candles[candles.length-1]?.close * 0.0013 || 5.0;
+  function cluster(points){
+    const groups=[];
+    points.forEach(p=>{
+      let g = groups.find(g=>Math.abs(g.price-p.price)<tol);
+      if(g){ g.members.push(p); g.price=(g.price*g.members.length+p.price)/(g.members.length+1); g.lastIdx=Math.max(g.lastIdx,p.idx); }
+      else groups.push({price:p.price, members:[p], lastIdx:p.idx});
+    });
+    return groups.filter(g=>g.members.length>=2).sort((a,b)=>b.lastIdx-a.lastIdx).slice(0,3);
+  }
+  return { bsl: cluster(highs), ssl: cluster(lows) };
+}
+
+function findStructure(candles){
+  const { highs, lows } = findSwingPivots(candles);
+  const highsByIdx = {}; highs.forEach(h=>highsByIdx[h.idx]=h);
+  const lowsByIdx = {}; lows.forEach(l=>lowsByIdx[l.idx]=l);
+  const labels = [];
+  let prevHighPrice=null, prevLowPrice=null;
+  highs.forEach(h=>{ h.label = prevHighPrice===null ? 'H' : (h.price>prevHighPrice?'HH':'LH'); prevHighPrice=h.price; labels.push(h); });
+  lows.forEach(l=>{ l.label = prevLowPrice===null ? 'L' : (l.price>prevLowPrice?'HL':'LL'); prevLowPrice=l.price; labels.push(l); });
+  labels.sort((a,b)=>a.idx-b.idx);
+
+  const events = [];
+  let lastSwingHigh=null, lastSwingLow=null, trend=null;
+  for(let i=0;i<candles.length;i++){
+    if(highsByIdx[i]) lastSwingHigh = highsByIdx[i];
+    if(lowsByIdx[i]) lastSwingLow = lowsByIdx[i];
+    const c = candles[i];
+    if(lastSwingHigh && c.close > lastSwingHigh.price && i > lastSwingHigh.idx){
+      const isChoch = trend==='bear';
+      events.push({idx:i, pivotIdx:lastSwingHigh.idx, label:isChoch?'CHoCH':'BOS', type:'bull', price:lastSwingHigh.price});
+      lastSwingHigh = null; trend='bull';
+    } else if(lastSwingLow && c.close < lastSwingLow.price && i > lastSwingLow.idx){
+      const isChoch = trend==='bull';
+      events.push({idx:i, pivotIdx:lastSwingLow.idx, label:isChoch?'CHoCH':'BOS', type:'bear', price:lastSwingLow.price});
+      lastSwingLow = null; trend='bear';
+    }
+  }
+  return { swings: labels, events };
+}
+
+function findLiquiditySweeps(candles, liq){
+  const events = [];
+  liq.bsl.forEach(g=>{
+    for(let j=g.lastIdx+1;j<candles.length;j++){
+      const c=candles[j];
+      if(c.high>g.price && c.close<=g.price){ events.push({idx:j, type:'bear', price:c.high}); break; }
+    }
+  });
+  liq.ssl.forEach(g=>{
+    for(let j=g.lastIdx+1;j<candles.length;j++){
+      const c=candles[j];
+      if(c.low<g.price && c.close>=g.price){ events.push({idx:j, type:'bull', price:c.low}); break; }
+    }
+  });
+  return events;
+}
+
+function findEntrySignals(candles, obs, bosEvents, liq){
+  const out = [];
+  obs.forEach(ob=>{
+    if(ob.touched) return;
+    const nearBOS = bosEvents.find(b => Math.abs(b.idx-ob.idx)<=6 && b.type===ob.type);
+    if(!nearBOS) return;
+    const entryPrice = ob.type==='bull' ? ob.top : ob.bottom;
+    let target = null;
+    if(ob.type==='bull'){
+      const pool = liq.bsl.filter(g=>g.price>entryPrice).sort((a,b)=>a.price-b.price)[0];
+      if(pool) target = pool.price;
+    } else {
+      const pool = liq.ssl.filter(g=>g.price<entryPrice).sort((a,b)=>b.price-a.price)[0];
+      if(pool) target = pool.price;
+    }
+    out.push({idx:ob.idx, type:ob.type, price:entryPrice, target});
+  });
+  return out.slice(-6);
+}
+
+const STRATEGIES = [
+  { id:'silverbullet', name:'ICT Silver Bullet',
+    desc:'Looks for a fresh FVG forming inside the 10-11am NY or 3-4am London killzone, right after a liquidity sweep.',
+    find(){ return state.fvgs.filter(z=>{
+      if(z.filled || z.startIdx>=state.candles.length) return false;
+      const h = new Date(state.candles[z.startIdx].time*1000).getUTCHours();
+      const inWindow = (h>=15&&h<16) || (h>=3&&h<4);
+      const sweepNear = state.sweeps.some(sw=>Math.abs(sw.idx-z.startIdx)<=6);
+      return inWindow && sweepNear;
+    }).map(z=>({idx:z.startIdx, price:(z.top+z.bottom)/2, type:z.type})); } },
+  { id:'judas', name:'Judas Swing',
+    desc:'A false breakout at session open (price sweeps the prior session\'s high/low) followed immediately by a CHoCH the other way.',
+    find(){ return state.bos.filter(b=>b.label==='CHoCH').filter(b=>
+      state.sweeps.some(sw=>sw.idx<b.idx && b.idx-sw.idx<=4)
+    ).map(b=>({idx:b.idx, price:b.price, type:b.type})); } },
+  { id:'turtlesoup', name:'Turtle Soup (Liquidity Sweep Reversal)',
+    desc:'Price wicks through an equal-high/low liquidity pool and closes back inside.',
+    find(){ return state.sweeps.map(sw=>({idx:sw.idx, price:sw.price, type:sw.type})); } },
+  { id:'obfvg', name:'FVG + Order Block Confluence',
+    desc:'An unmitigated Order Block that lines up with a fresh FVG and a recent same-direction BOS/CHoCH.',
+    find(){ return state.entries.map(en=>({idx:en.idx, price:en.price, type:en.type})); } },
+  { id:'ictmacros', name:'ICT Macros & Killzones',
+    desc:'Looks for a fresh FVG or unmitigated Order Block forming exactly inside one of the 8 ICT Macro, Judas Swing, or Silver Bullet algorithmic time windows (NY Time).',
+    find(){
+      const out = [];
+      const checkWindow = (tSec) => {
+        const nyStr = new Date(tSec * 1000).toLocaleString("en-US", { timeZone: "America/New_York" });
+        const dt = new Date(nyStr);
+        const hrs = dt.getHours();
+        const mins = dt.getMinutes();
+        const v = hrs * 100 + mins;
+        if (v >= 850 && v <= 910) return "Macro 1 (08:50-09:10)";
+        if (v >= 950 && v <= 1010) return "Macro 2 (09:50-10:10)";
+        if (v >= 1050 && v <= 1110) return "Macro 3 (10:50-11:10)";
+        if (v >= 1150 && v <= 1210) return "Macro 4 (11:50-12:10)";
+        if (v >= 1250 && v <= 1310) return "Macro 5 (12:50-13:10)";
+        if (v >= 1350 && v <= 1410) return "Macro 6 (13:50-14:10)";
+        if (v >= 1450 && v <= 1510) return "Macro 7 (14:50-15:10)";
+        if (v >= 1550 && v <= 1610) return "Macro 8 (15:50-16:10)";
+        if (v >= 300 && v <= 400) return "Silver Bullet (03:00-04:00)";
+        if (v >= 1000 && v <= 1100) return "Silver Bullet (10:00-11:00)";
+        if (v >= 1400 && v <= 1500) return "Silver Bullet (14:00-15:00)";
+        if (v >= 200 && v <= 300) return "London Judas (02:00-03:00)";
+        if (v >= 800 && v <= 900) return "NY Judas (08:00-09:00)";
+        return null;
+      };
+
+      state.fvgs.forEach(z => {
+        if (z.startIdx >= state.candles.length) return;
+        const c = state.candles[z.startIdx];
+        const match = checkWindow(c.time);
+        if (match) {
+          out.push({ idx: z.startIdx, price: (z.top + z.bottom) / 2, type: z.type });
+        }
+      });
+      state.obs.forEach(ob => {
+        if (ob.idx >= state.candles.length) return;
+        const c = state.candles[ob.idx];
+        const match = checkWindow(c.time);
+        if (match) {
+          out.push({ idx: ob.idx, price: (ob.top + ob.bottom) / 2, type: ob.type });
+        }
+      });
+      return out;
+    }
+  }
+];
+
+function evaluateHistoricalTrade(candles, idx, type, entryPrice) {
+  const slDist = 6.0;  // $6 stop loss default on gold
+  const tpDist = 12.0; // $12 take profit default (1:2 RR ratio)
+  const sl = type === 'bull' ? (entryPrice - slDist) : (entryPrice + slDist);
+  const tp = type === 'bull' ? (entryPrice + tpDist) : (entryPrice - tpDist);
+  
+  for (let j = idx + 1; j < candles.length; j++) {
+    const c = candles[j];
+    if (type === 'bull') {
+      if (c.high >= tp) return { result: 'WIN', closePrice: tp, closeIdx: j };
+      if (c.low <= sl) return { result: 'LOSS', closePrice: sl, closeIdx: j };
+    } else {
+      if (c.low <= tp) return { result: 'WIN', closePrice: tp, closeIdx: j };
+      if (c.high >= sl) return { result: 'LOSS', closePrice: sl, closeIdx: j };
+    }
+  }
+  return { result: 'OPEN', closePrice: candles[candles.length - 1].close, closeIdx: candles.length - 1 };
+}
+
+// ---------- UI INITIALIZATION ----------
+const chartEl = document.getElementById('fvgobChartEl');
+const fvgobOverlay = document.getElementById('fvgobOverlay');
+const fvgobOctx = fvgobOverlay.getContext('2d');
+
+function chartOpts(){
+  return {
+    layout:{ background:{color:'transparent'}, textColor:'#737c8c', fontFamily:'JetBrains Mono, monospace', fontSize:11 },
+    grid:{ vertLines:{color:'#111520'}, horzLines:{color:'#111520'} },
+    rightPriceScale:{ borderColor:'#1c2230' },
+    timeScale:{ borderColor:'#1c2230', timeVisible:true, secondsVisible:false },
+    handleScroll:{ mouseWheel:true, pressedMouseMove:true, horzTouchDrag:true, vertTouchDrag:false },
+    kineticScroll:{ touch:false, mouse:false },
+  };
+}
+
+const fvgobChart = LightweightCharts.createChart(chartEl, chartOpts());
+const fvgobCandleSeries = fvgobChart.addCandlestickSeries({
+  upColor:'#f4fff4', downColor:'#39ff14', borderVisible:false,
+  wickUpColor:'#f4fff4', wickDownColor:'#39ff14',
+  priceFormat:{type:'price', precision:2, minMove:0.01}
+});
+
+fvgobChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+  drawFvgObOverlay();
+});
+
+function drawFvgObOverlay(){
+  fitCanvasToChart(fvgobOverlay, chartEl);
+  const w = fvgobOverlay.clientWidth, h = fvgobOverlay.clientHeight;
+  fvgobOctx.clearRect(0,0,w,h);
+  if(!state.candles.length) return;
+  const ts = fvgobChart.timeScale();
+  const labelRects2 = [];
+
+  // 1. FVG drawing
+  if(state.ind2.fvg) state.fvgs.forEach(z=>{
+    if(z.startIdx>=state.candles.length || z.extendIdx>=state.candles.length) return;
+    const x1 = ts.timeToCoordinate(state.candles[z.startIdx].time), x2 = ts.timeToCoordinate(state.candles[z.extendIdx].time);
+    const yTop = fvgobCandleSeries.priceToCoordinate(z.top), yBot = fvgobCandleSeries.priceToCoordinate(z.bottom);
+    if(x1===null||x2===null||yTop===null||yBot===null) return;
+    const col = z.type==='bull' ? '#f4fff4' : '#39ff14';
+    fvgobOctx.fillStyle = hexA(col, z.filled?0.08:0.24);
+    fvgobOctx.strokeStyle = hexA(col, z.filled?0.25:0.75);
+    fvgobOctx.lineWidth = z.filled?1:1.5;
+    fvgobOctx.fillRect(x1,yTop,x2-x1,yBot-yTop);
+    fvgobOctx.strokeRect(x1,yTop,x2-x1,yBot-yTop);
+    if(x2-x1>30 && !z.filled){
+      fvgobOctx.fillStyle=hexA(col,0.95); fvgobOctx.font='700 13px JetBrains Mono, monospace';
+      fvgobOctx.textAlign='left'; fvgobOctx.fillText('FVG', x1+5, yTop+16);
+    }
+  });
+
+  // 2. OB drawing
+  if(state.ind2.ob) state.obs.forEach(ob=>{
+    if(ob.idx>=state.candles.length || ob.extendIdx>=state.candles.length) return;
+    const x1 = ts.timeToCoordinate(state.candles[ob.idx].time), x2 = ts.timeToCoordinate(state.candles[ob.extendIdx].time);
+    const yTop = fvgobCandleSeries.priceToCoordinate(ob.top), yBot = fvgobCandleSeries.priceToCoordinate(ob.bottom);
+    if(x1===null||x2===null||yTop===null||yBot===null) return;
+    const col = ob.type==='bull' ? '#f4fff4' : '#39ff14';
+    fvgobOctx.fillStyle = hexA(col, ob.touched?0.06:0.26);
+    fvgobOctx.strokeStyle = hexA(col, ob.touched?0.2:0.9);
+    fvgobOctx.setLineDash(ob.touched?[4,3]:[]);
+    fvgobOctx.lineWidth = ob.touched?1:2;
+    fvgobOctx.fillRect(x1,yTop,x2-x1,yBot-yTop);
+    fvgobOctx.strokeRect(x1,yTop,x2-x1,yBot-yTop);
+    fvgobOctx.setLineDash([]);
+    if(!ob.touched){
+      let label = ob.type==='bull'?'BULL OB':'BEAR OB';
+      if (state.ind.poi) {
+        label += ' (POI)';
+      }
+      fvgobOctx.font='700 13px JetBrains Mono, monospace';
+      const tw = fvgobOctx.measureText(label).width;
+      fvgobOctx.fillStyle=hexA(col,0.95); fvgobOctx.fillRect(x1,yTop+2,tw+14,20);
+      fvgobOctx.fillStyle='#0b0912'; fvgobOctx.textAlign='left';
+      fvgobOctx.fillText(label, x1+7, yTop+17);
+
+      if (state.ind.poi) {
+        const yMid = (yTop + yBot) / 2;
+        fvgobOctx.strokeStyle = hexA(col, 0.7);
+        fvgobOctx.lineWidth = 1;
+        fvgobOctx.setLineDash([3, 3]);
+        fvgobOctx.beginPath(); fvgobOctx.moveTo(x1, yMid); fvgobOctx.lineTo(x2, yMid); fvgobOctx.stroke();
+        fvgobOctx.setLineDash([]);
+        
+        fvgobOctx.fillStyle = hexA(col, 0.85);
+        fvgobOctx.font = '700 9px JetBrains Mono, monospace';
+        fvgobOctx.textAlign = 'right';
+        fvgobOctx.fillText('50% POI (Mean Threshold)', x2 - 5, yMid - 4);
+      }
+    }
+  });
+
+  // 3. Strategy backtest overlays
+  if (state.strategy) {
+    const s = STRATEGIES.find(x => x.id === state.strategy);
+    if (s) {
+      let points = [];
+      try { points = s.find(); } catch (e) { points = []; }
+      points.forEach(p => {
+        if (p.idx >= state.candles.length) return;
+        const xEntry = ts.timeToCoordinate(state.candles[p.idx].time);
+        const yEntry = fvgobCandleSeries.priceToCoordinate(p.price);
+        if (xEntry === null || yEntry === null) return;
+        
+        const tradeResult = evaluateHistoricalTrade(state.candles, p.idx, p.type, p.price);
+        const xClose = ts.timeToCoordinate(state.candles[tradeResult.closeIdx].time);
+        const yClose = fvgobCandleSeries.priceToCoordinate(tradeResult.closePrice);
+        
+        const isWin = tradeResult.result === 'WIN';
+        const isOpen = tradeResult.result === 'OPEN';
+        
+        const colorResult = isOpen ? '#ff9800' : (isWin ? '#f4fff4' : '#39ff14');
+        const outcomeText = isOpen ? 'OPEN' : (isWin ? '🏆 WIN' : '❌ LOSS');
+        
+        fvgobOctx.strokeStyle = colorResult;
+        fvgobOctx.lineWidth = 2.5;
+        fvgobOctx.beginPath(); fvgobOctx.arc(xEntry, yEntry, 13, 0, Math.PI * 2); fvgobOctx.stroke();
+        fvgobOctx.fillStyle = hexA(colorResult, 0.15); fvgobOctx.fill();
+        
+        fvgobOctx.fillStyle = colorResult;
+        fvgobOctx.font = 'bold 9px JetBrains Mono, monospace';
+        fvgobOctx.textAlign = 'center';
+        fvgobOctx.fillText(p.type === 'bull' ? 'BUY' : 'SELL', xEntry, yEntry - 18);
+        
+        if (xClose !== null && yClose !== null) {
+          fvgobOctx.strokeStyle = hexA(colorResult, 0.65);
+          fvgobOctx.lineWidth = 1.5;
+          fvgobOctx.setLineDash([3, 3]);
+          fvgobOctx.beginPath(); fvgobOctx.moveTo(xEntry, yEntry); fvgobOctx.lineTo(xClose, yClose); fvgobOctx.stroke();
+          fvgobOctx.setLineDash([]);
+          
+          fvgobOctx.fillStyle = colorResult;
+          fvgobOctx.font = 'bold 10px JetBrains Mono, monospace';
+          fvgobOctx.textAlign = 'left';
+          fvgobOctx.fillText(` ${outcomeText}`, xClose + 4, yClose + 3.5);
+        }
+      });
+    }
+  }
+}
+
+function hexA(hex, a){
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function fitCanvasToChart(overlayCanvas, chartElement){
+  const canvases = Array.from(chartElement.querySelectorAll('canvas'));
+  if(canvases.length === 0) return;
+  const mainCanvas = canvases.reduce((largest, canvas) => {
+    const area = canvas.clientWidth * canvas.clientHeight;
+    const largestArea = largest ? (largest.clientWidth * largest.clientHeight) : -1;
+    return area > largestArea ? canvas : largest;
+  }, null);
+  
+  if(!mainCanvas) return;
+  const rectChart = chartElement.getBoundingClientRect();
+  const rectCanvas = mainCanvas.getBoundingClientRect();
+  const offsetLeft = rectCanvas.left - rectChart.left;
+  const offsetTop = rectCanvas.top - rectChart.top;
+  
+  if (
+    overlayCanvas.width === mainCanvas.width &&
+    overlayCanvas.height === mainCanvas.height &&
+    overlayCanvas.style.left === offsetLeft + 'px' &&
+    overlayCanvas.style.top === offsetTop + 'px' &&
+    overlayCanvas.style.width === rectCanvas.width + 'px' &&
+    overlayCanvas.style.height === rectCanvas.height + 'px'
+  ) {
+    return;
+  }
+  
+  overlayCanvas.width = mainCanvas.width;
+  overlayCanvas.height = mainCanvas.height;
+  overlayCanvas.style.position = 'absolute';
+  overlayCanvas.style.left = offsetLeft + 'px';
+  overlayCanvas.style.top = offsetTop + 'px';
+  overlayCanvas.style.width = rectCanvas.width + 'px';
+  overlayCanvas.style.height = rectCanvas.height + 'px';
+  
+  const scaleX = mainCanvas.width / (rectCanvas.width || 1);
+  const scaleY = mainCanvas.height / (rectCanvas.height || 1);
+  overlayCanvas.getContext('2d').setTransform(scaleX, 0, 0, scaleY, 0, 0);
+}
+
+function updateSummaryStrip() {
+  const openTrades = state.autoPaperTrades.filter(t => t.status === 'open');
+  const closedToday = state.autoPaperTrades.filter(t => {
+    if (t.status === 'open') return false;
+    const tDate = new Date(t.closeTime || t.openTime).toDateString();
+    return tDate === new Date().toDateString();
+  });
+  
+  let totalClosed = closedToday.length;
+  let wins = closedToday.filter(t => t.status === 'tp').length;
+  let winRate = totalClosed > 0 ? Math.round((wins / totalClosed) * 100) : 0;
+  
+  let totalPnL = 0;
+  closedToday.forEach(t => totalPnL += t.pnl);
+  openTrades.forEach(t => totalPnL += t.pnl);
+  
+  document.getElementById('sumSignalsCount').textContent = state.signalsFiredCount;
+  document.getElementById('sumOpenTrades').textContent = openTrades.length;
+  document.getElementById('sumWinRate').textContent = `${winRate}% (${wins}/${totalClosed})`;
+  
+  const pnlEl = document.getElementById('sumPnL');
+  if (pnlEl) {
+    pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + '$' + totalPnL.toFixed(2);
+    pnlEl.className = totalPnL >= 0 ? 'bull' : 'bear';
+  }
+}
+
+// ---- WEBSOCKET LIVE STREAM ----
+let goldWS = null;
+function handleGoldTrade(price, qty, tradeTimeMs){
+  state.autoPaperTrades.forEach(t => {
+    if (t.status !== 'open') return;
+    const pnlPoints = t.dir === 'buy' ? (price - t.entry) : (t.entry - price);
+    t.pnl = pnlPoints * 100.0;
+  });
+  updateSummaryStrip();
+  
+  const badgeEl = document.getElementById('priceNow');
+  if (badgeEl) {
+    badgeEl.textContent = price.toFixed(3);
+  }
+}
+
+function startGoldFeed(){
+  if(goldWS) return;
+  try{
+    goldWS = new WebSocket('wss://stream.binance.com:9443/ws/paxgusdt@trade');
+    goldWS.onmessage = (ev)=>{
+      try{
+        const msg = JSON.parse(ev.data);
+        handleGoldTrade(parseFloat(msg.p), parseFloat(msg.q)||0, msg.T);
+      }catch(e){}
+    };
+    goldWS.onclose = ()=>{ goldWS=null; setTimeout(startGoldFeed, 3000); };
+  }catch(err){}
+}
+
+function showToast(msg) {
+  const t = document.getElementById('alertToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>t.classList.remove('show'), 6000);
+}
+
+// ---------- INITIALIZE AND RENDER ----------
+const stratSelect = document.getElementById('strategySelect');
+STRATEGIES.forEach(s=>{
+  const opt = document.createElement('option');
+  opt.value = s.id; opt.textContent = 'STRATEGY: '+s.name.toUpperCase();
+  stratSelect.appendChild(opt);
+});
+
+stratSelect.value = state.strategy;
+stratSelect.addEventListener('change', ()=>{
+  state.strategy = stratSelect.value;
+  localStorage.setItem(STATE_KEYS.STRATEGY, JSON.stringify(state.strategy));
+  drawFvgObOverlay();
+});
+
+function renderFvgObMapOnStart() {
+  if (!state.candles.length) return;
+  fvgobCandleSeries.setData(state.candles.map(c=>({time:c.time,open:c.open,high:c.high,low:c.low,close:c.close})));
+  
+  state.fvgs = findFVGs(state.candles);
+  state.obs = findOrderBlocks(state.candles);
+  const structure = findStructure(state.candles);
+  state.bos = structure.events;
+  state.liq = findLiquidity(state.candles);
+  state.sweeps = findLiquiditySweeps(state.candles, state.liq);
+  state.entries = findEntrySignals(state.candles, state.obs, state.bos, state.liq);
+
+  setDefaultView(fvgobChart, state.candles, 130);
+  drawFvgObOverlay();
+}
+
+function setDefaultView(chartInst, candles, barsToShow){
+  barsToShow = barsToShow || 130;
+  const n = candles.length;
+  if(n<=barsToShow){ chartInst.timeScale().fitContent(); return; }
+  chartInst.timeScale().setVisibleLogicalRange({from: n-barsToShow, to: n+4});
+}
+
+renderFvgObMapOnStart();
+updateSummaryStrip();
+startGoldFeed();
+
+window.addEventListener('resize', () => {
+  fvgobChart.resize(chartEl.clientWidth, chartEl.clientHeight);
+  drawFvgObOverlay();
+});
+  // ---- CYBERCORE BACKGROUND LIGHT BEAMS SPAWNER ----
+  function spawnCybercoreBeams() {
+    const scene = document.createElement('div');
+    scene.id = 'cybercoreScene';
+    scene.style = 'position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0;';
+    
+    // Floor radial glow
+    const floor = document.createElement('div');
+    floor.style = 'position:absolute; bottom:0; left:0; right:0; height:35vh; background:radial-gradient(ellipse at bottom, rgba(57,255,20,0.12), transparent 70%); opacity:0.85;';
+    scene.appendChild(floor);
+    
+    document.body.appendChild(scene);
+    
+    const beamCount = 35;
+    for (let i = 0; i < beamCount; i++) {
+      const beam = document.createElement('div');
+      const isSecondary = Math.random() < 0.15;
+      beam.className = 'cybercore-beam' + (isSecondary ? ' secondary' : '');
+      
+      const riseDur = Math.random() * 3 + 5; // 5-8s rise duration
+      const left = Math.random() * 100;
+      const width = Math.floor(Math.random() * 2) + 1;
+      const delay = Math.random() * 6;
+      
+      beam.style.left = `${left}%`;
+      beam.style.width = `${width}px`;
+      beam.style.height = `${Math.floor(Math.random() * 120) + 180}px`;
+      beam.style.animationDelay = `${delay}s`;
+      beam.style.animationDuration = `${riseDur}s, ${riseDur}s`;
+      
+      scene.appendChild(beam);
+    }
+  }
+  
+  spawnCybercoreBeams();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d250dd0f090c6a',t:'MTc4NDM4NjQwNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

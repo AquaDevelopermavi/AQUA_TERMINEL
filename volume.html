@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aqua Terminal - Volume Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root{
+    --bg: #0a100c;          /* Deep Blackish Forest Green */
+    --panel: #101612;       /* Translucent Deep Emerald Black */
+    --panel2: #16201a;      /* Secondary Container Dark */
+    --line: #223028;        /* Subtle Border Forest Green */
+    --gold: #39ff14;        /* Electric Neon Lime Green Accent */
+    --gold-dim: #26b30f;    /* Muted Neon Lime */
+    --bull: #f4fff4;        /* Glowing Mint White */
+    --bear: #39ff14;        /* Electric Neon Lime Green */
+    --txt: #f4fff4;         /* High Contrast Off-White Mint */
+    --txt-dim: #6d8075;     /* Muted Sage/Forest Gray */
+    --asian: #2962ff;
+    --london: #9c27b0;
+    --ny: #ff9800;
+  }
+    *{box-sizing:border-box;}
+  
+  /* Custom Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--txt-dim);
+  }
+
+  html, body{
+    margin:0;
+    background:var(--bg);
+    color:var(--txt);
+    font-family:'Space Grotesk', sans-serif;
+    overflow-y:auto;
+    overflow-x:hidden;
+    height:100%;
+  }
+  .num{font-family:'JetBrains Mono', monospace;}
+
+  .app{display:flex;flex-direction:column;min-height:100vh;height:100vh;}
+
+  /* Sticky Navigation Header */
+  .nav-header{
+    display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+    padding:12px 20px;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .brand{display:flex;align-items:center;gap:12px;margin-right:8px;}
+  .brand-mark{
+    width:28px;height:38px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .brand-mark img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 8px rgba(57,255,20,0.5));}
+  .brand-txt{font-weight:700;letter-spacing:0.8px;font-size:15px; color:var(--txt);}
+  .brand-sub{font-size:9px;color:var(--txt-dim);letter-spacing:1.5px;margin-top:-1px;font-weight:600;}
+
+  .nav-links{display:flex; gap:6px;}
+  .nav-link{
+    background:transparent; border:1px solid transparent; color:var(--txt-dim);
+    padding:6px 14px; border-radius:6px; font-size:12px; font-weight:700;
+    text-decoration:none; font-family:'Space Grotesk', sans-serif;
+    cursor:pointer;
+  }
+  .nav-link.active{
+    background:var(--panel2); border-color:var(--line); color:var(--gold);
+    box-shadow: 0 0 10px rgba(57,255,20,0.15);
+  }
+  .nav-link:hover:not(.active){color:var(--txt); background:rgba(255,255,255,0.02);}
+
+  .spacer{flex:1;}
+  .price-badge{
+    display:flex;flex-direction:column;align-items:flex-end;
+  }
+  .price-badge .p{font-family:'JetBrains Mono', monospace;font-size:20px;font-weight:700; letter-spacing:-0.5px;}
+  .price-badge .p.up{color:var(--bull); text-shadow: 0 0 12px rgba(244,255,244,0.25);}
+  .price-badge .p.down{color:var(--bear); text-shadow: 0 0 12px rgba(57,255,20,0.25);}
+  .price-badge .l{font-size:10px;color:var(--txt-dim);letter-spacing:1px;font-weight:600;}
+
+  /* Summary strip style */
+  .summary-strip {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: #08090d;
+    border-bottom: 1px solid var(--line);
+    padding: 8px 20px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--txt-dim);
+    flex-wrap: wrap;
+    z-index: 10;
+    position: relative;
+    font-weight: 500;
+  }
+  .summary-strip .val {
+    color: var(--gold);
+    font-weight: 700;
+  }
+  .summary-strip .bull {
+    color: var(--bull);
+    font-weight: 700;
+  }
+  .summary-strip .bear {
+    color: var(--bear);
+    font-weight: 700;
+  }
+
+  /* Main area */
+  .main{flex:1;display:flex;overflow:hidden;position:relative;}
+  .chart-wrap{flex:1;position:relative;}
+  #vpChartEl{position:absolute;inset:0;}
+  #vpOverlay{position:absolute;inset:0;pointer-events:none;}
+
+  .vp-label{
+    position:absolute;top:8px;left:8px;z-index:5;
+    font-size:11px;letter-spacing:1.5px;color:var(--gold);
+    font-family:'JetBrains Mono',monospace;
+    background: rgba(16,22,18,0.9);
+    padding:6px 12px;
+    border-radius:6px;
+    border: 1px solid var(--line);
+  }
+  .toast{
+    position:fixed;bottom:24px;right:24px;z-index:60;
+    background:var(--panel);
+    border:1px solid var(--gold);border-radius:8px;padding:14px 20px;
+    font-family:'JetBrains Mono', monospace;font-size:12px;color:var(--txt);
+    box-shadow:0 12px 36px rgba(0,0,0,0.6);
+    transform:translateY(20px);opacity:0;pointer-events:none;max-width:340px;
+  }
+  .toast.show{transform:translateY(0);opacity:1;}
+  /* Cybercore Background Beams Styles */
+  @keyframes rise {
+    0% { transform: translateY(110vh); opacity: 0; }
+    10% { opacity: 0.8; }
+    100% { transform: translateY(-130vh); opacity: 0; }
+  }
+  @keyframes fade {
+    0%, 100% { opacity: 0; }
+    5%, 85% { opacity: 0.6; }
+  }
+  .cybercore-beam {
+    position: absolute;
+    bottom: -250px;
+    background: linear-gradient(to top, transparent, var(--gold));
+    opacity: 0;
+    animation: rise linear infinite, fade ease-in-out infinite;
+    pointer-events: none;
+  }
+  .cybercore-beam.secondary {
+    background: linear-gradient(to top, transparent, #f4fff4);
+  }
+
+  /* Neon Button Hover Glow Border Lines */
+  .tf-btn, .draw-btn, .nav-link {
+    position: relative !important;
+    overflow: visible !important;
+  }
+  .tf-btn::before, .draw-btn::before, .nav-link::before {
+    content: '';
+    position: absolute;
+    left: 12.5%;
+    top: 0;
+    height: 1px;
+    width: 75%;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  .tf-btn::after, .draw-btn::after, .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 12.5%;
+    bottom: 0;
+    height: 1px;
+    width: 75%;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  .tf-btn:hover::before, .tf-btn:hover::after,
+  .draw-btn:hover::before, .draw-btn:hover::after,
+  .nav-link:hover::before, .nav-link:hover::after {
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Shared Premium Navigation Header -->
+  <div class="nav-header">
+    <div class="brand">
+      <div class="brand-mark"><img src="data:image/png;base64,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" alt="Aqua Terminal"></div>
+      <div>
+        <div class="brand-txt">AQUA TERMINAL</div>
+        <div class="brand-sub">XAU / USD &middot; PROFESSIONAL</div>
+      </div>
+    </div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">TERMINAL</a>
+      <a href="liquidity.html" class="nav-link">LIQUIDITY HEATMAP</a>
+      <a href="volume.html" class="nav-link active">VOLUME PROFILE</a>
+      <a href="fvgob.html" class="nav-link">FVG & OB</a>
+      <a href="calendar.html" class="nav-link">ECONOMIC CALENDAR</a>
+      <a href="journal.html" class="nav-link">TRADE JOURNAL</a>
+    </div>
+    <div class="spacer"></div>
+    <div class="price-badge">
+      <div class="p num" id="priceNow">--</div>
+      <div class="l" id="priceChange">--</div>
+    </div>
+  </div>
+
+  <!-- ALWAYS-VISIBLE SUMMARY STRIP -->
+  <div class="summary-strip" id="summaryStrip">
+    <div>📊 TODAY'S SUMMARY:</div>
+    <div>Signals Fired Today: <span class="val" id="sumSignalsCount">0</span></div>
+    <div>Open Paper Trades: <span class="val" id="sumOpenTrades">0</span></div>
+    <div>Today's Win Rate: <span class="val" id="sumWinRate">0%</span></div>
+    <div>Today's PnL: <span id="sumPnL" style="font-weight:bold;">$0.00</span></div>
+  </div>
+
+  <!-- Main area -->
+  <div class="main">
+    <div class="chart-wrap">
+      <div class="vp-label">VOLUME PROFILE WORKSTATION (Value Area 70%)</div>
+      <div id="vpChartEl"></div>
+      <canvas id="vpOverlay"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="alertToast"></div>
+
+<script>
+// ---------- SHARED STATE UTILITIES ----------
+const STATE_KEYS = {
+  CANDLES: 'aquaCandles',
+  AUTO_TRADES: 'aquaAutoPaperTrades',
+  CAL_EVENTS: 'aquaCalendarEvents',
+  ALERTS: 'aquaAlerts',
+  SIGNALS_COUNT: 'aquaSignalsFiredCount',
+  SIGNALS_DATE: 'aquaSignalsFiredDate'
+};
+
+const state = {
+  tf: 60,
+  candles: [],
+  vp: null,
+  autoPaperTrades: [],
+  signalsFiredCount: 0,
+  live: true,
+  liq: { bsl:[], ssl:[] },
+  pdpw: {}
+};
+
+function loadGlobalState() {
+  try {
+    state.candles = JSON.parse(localStorage.getItem(STATE_KEYS.CANDLES)) || [];
+    state.autoPaperTrades = JSON.parse(localStorage.getItem(STATE_KEYS.AUTO_TRADES)) || [];
+    
+    const todayStr = new Date().toDateString();
+    const savedDate = localStorage.getItem(STATE_KEYS.SIGNALS_DATE);
+    if (savedDate === todayStr) {
+      state.signalsFiredCount = parseInt(localStorage.getItem(STATE_KEYS.SIGNALS_COUNT)) || 0;
+    } else {
+      state.signalsFiredCount = 0;
+    }
+  } catch (e) {
+    console.warn('Error loading state', e);
+  }
+}
+
+loadGlobalState();
+
+// ---------- INDICATOR CALCULATIONS ----------
+function findSwingPivots(candles, lookback){
+  lookback = lookback || 5;
+  const highs=[], lows=[];
+  for(let i=lookback;i<candles.length-lookback;i++){
+    const c = candles[i];
+    let isHigh=true, isLow=true;
+    for(let k=1;k<=lookback;k++){
+      if(candles[i-k].high>=c.high || candles[i+k].high>=c.high) isHigh=false;
+      if(candles[i-k].low<=c.low || candles[i+k].low<=c.low) isLow=false;
+    }
+    if(isHigh) highs.push({idx:i, price:c.high});
+    if(isLow) lows.push({idx:i, price:c.low});
+  }
+  return { highs, lows };
+}
+
+function findLiquidity(candles){
+  const { highs, lows } = findSwingPivots(candles);
+  const tol = candles[candles.length-1]?.close * 0.0013 || 5.0;
+  function cluster(points){
+    const groups=[];
+    points.forEach(p=>{
+      let g = groups.find(g=>Math.abs(g.price-p.price)<tol);
+      if(g){ g.members.push(p); g.price=(g.price*g.members.length+p.price)/(g.members.length+1); g.lastIdx=Math.max(g.lastIdx,p.idx); }
+      else groups.push({price:p.price, members:[p], lastIdx:p.idx});
+    });
+    return groups.filter(g=>g.members.length>=2).sort((a,b)=>b.lastIdx-a.lastIdx).slice(0,3);
+  }
+  return { bsl: cluster(highs), ssl: cluster(lows) };
+}
+
+function findPrevDayWeek(candles){
+  if(candles.length<288) return {};
+  const d = candles.slice(-288);
+  const w = candles.slice(-1440);
+  let pdh=-Infinity, pdl=Infinity, pwh=-Infinity, pwl=Infinity;
+  d.forEach(c=>{ pdh=Math.max(pdh,c.high); pdl=Math.min(pdl,c.low); });
+  w.forEach(c=>{ pwh=Math.max(pwh,c.high); pwl=Math.min(pwl,c.low); });
+  return { pd:{h:pdh, l:pdl}, pw:{h:pwh, l:pwl} };
+}
+
+function computeVP2(){
+  if(state.candles.length < 10) return null;
+  const visible = state.candles.slice(-300); // Compute over recent historical chunk
+  let min=Infinity, max=-Infinity;
+  visible.forEach(c=>{ min=Math.min(min,c.low); max=Math.max(max,c.high); });
+  if(min===max) return null;
+  const buckets=42, bucketSize=(max-min)/buckets;
+  const vols = new Array(buckets).fill(0);
+  visible.forEach(c=>{
+    const lo = Math.max(0, Math.floor((c.low-min)/bucketSize));
+    const hi = Math.min(buckets-1, Math.floor((c.high-min)/bucketSize));
+    const span = Math.max(1, hi-lo+1);
+    for(let b=lo;b<=hi;b++) vols[b] += c.volume/span;
+  });
+  const totalVol = vols.reduce((a,b)=>a+b,0);
+  const poc = vols.indexOf(Math.max(...vols));
+  
+  let lo=poc, hi=poc, sum=vols[poc];
+  while(sum < totalVol*0.7 && (lo>0 || hi<buckets-1)){
+    const nextLo = lo>0 ? vols[lo-1] : -1;
+    const nextHi = hi<buckets-1 ? vols[hi+1] : -1;
+    if(nextHi>=nextLo){ hi++; sum+=vols[hi]; } else { lo--; sum+=vols[lo]; }
+  }
+  return {
+    min, max, buckets, bucketSize, vols, totalVol,
+    poc: min+(poc+0.5)*bucketSize, vah: min+(hi+1)*bucketSize, val: min+lo*bucketSize,
+    pocIdx: poc, loIdx: lo, hiIdx: hi
+  };
+}
+
+// ---------- UI INITIALIZATION ----------
+const chartEl = document.getElementById('vpChartEl');
+const vpOverlay2 = document.getElementById('vpOverlay');
+const vpOctx2 = vpOverlay2.getContext('2d');
+
+function chartOpts(){
+  return {
+    layout:{ background:{color:'transparent'}, textColor:'#737c8c', fontFamily:'JetBrains Mono, monospace', fontSize:11 },
+    grid:{ vertLines:{color:'#111520'}, horzLines:{color:'#111520'} },
+    rightPriceScale:{ borderColor:'#1c2230' },
+    timeScale:{ borderColor:'#1c2230', timeVisible:true, secondsVisible:false },
+    handleScroll:{ mouseWheel:true, pressedMouseMove:true, horzTouchDrag:true, vertTouchDrag:false },
+    kineticScroll:{ touch:false, mouse:false },
+  };
+}
+
+const vpChart2 = LightweightCharts.createChart(chartEl, chartOpts());
+const vpCandleSeries2 = vpChart2.addCandlestickSeries({
+  upColor:'#f4fff4', downColor:'#39ff14', borderVisible:false,
+  wickUpColor:'#f4fff4', wickDownColor:'#39ff14',
+  priceFormat:{type:'price', precision:2, minMove:0.01}
+});
+
+vpChart2.timeScale().subscribeVisibleLogicalRangeChange(() => {
+  renderVolumeProfileTab();
+});
+
+function renderVolumeProfileTab(){
+  fitCanvasToChart(vpOverlay2, chartEl);
+  const w = vpOverlay2.clientWidth, h = vpOverlay2.clientHeight;
+  vpOctx2.clearRect(0,0,w,h);
+  
+  const vp2 = computeVP2();
+  if(!vp2) return;
+  const { min, buckets, bucketSize, vols, pocIdx, loIdx, hiIdx } = vp2;
+  const maxVol = Math.max(...vols);
+  const profileW = Math.min(w*0.55, 420); 
+
+  for(let b=0;b<buckets;b++){
+    const priceMid = min + (b+0.5)*bucketSize;
+    const y = vpCandleSeries2.priceToCoordinate(priceMid);
+    if(y===null) continue;
+    const barW = (vols[b]/maxVol) * profileW;
+    const isPoc = b===pocIdx;
+    const inVA = b>=loIdx && b<=hiIdx;
+    
+    // Theme matching color tones
+    vpOctx2.fillStyle = isPoc ? 'rgba(57, 255, 20, 0.75)' : (inVA ? 'rgba(244, 255, 244, 0.22)' : 'rgba(244, 255, 244, 0.08)');
+    const barH = Math.max(2, h/buckets*0.75);
+    vpOctx2.fillRect(w-6-barW, y-barH/2, barW, barH);
+  }
+  
+  state.liq.bsl.forEach(g=>{
+    const y = vpCandleSeries2.priceToCoordinate(g.price);
+    if(y===null) return;
+    vpOctx2.fillStyle='#2962ff';
+    vpOctx2.beginPath(); vpOctx2.moveTo(6,y); vpOctx2.lineTo(16,y-6); vpOctx2.lineTo(16,y+6); vpOctx2.fill();
+  });
+  state.liq.ssl.forEach(g=>{
+    const y = vpCandleSeries2.priceToCoordinate(g.price);
+    if(y===null) return;
+    vpOctx2.fillStyle='#39ff14';
+    vpOctx2.beginPath(); vpOctx2.moveTo(6,y); vpOctx2.lineTo(16,y-6); vpOctx2.lineTo(16,y+6); vpOctx2.fill();
+  });
+  
+  drawLevelLineOn(vpOctx2, vpCandleSeries2, w, vp2.poc, 'POC', '#39ff14', []);
+  drawLevelLineOn(vpOctx2, vpCandleSeries2, w, vp2.vah, 'VAH', '#6d8075', [1,3]);
+  drawLevelLineOn(vpOctx2, vpCandleSeries2, w, vp2.val, 'VAL', '#6d8075', [1,3]);
+  if(state.pdpw.pd){
+    drawLevelLineOn(vpOctx2, vpCandleSeries2, w, state.pdpw.pd.h, 'PDH', '#f4fff4', []);
+    drawLevelLineOn(vpOctx2, vpCandleSeries2, w, state.pdpw.pd.l, 'PDL', '#f4fff4', []);
+  }
+}
+
+function hexA(hex, a){
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function fitCanvasToChart(overlayCanvas, chartElement){
+  const canvases = Array.from(chartElement.querySelectorAll('canvas'));
+  if(canvases.length === 0) return;
+  const mainCanvas = canvases.reduce((largest, canvas) => {
+    const area = canvas.clientWidth * canvas.clientHeight;
+    const largestArea = largest ? (largest.clientWidth * largest.clientHeight) : -1;
+    return area > largestArea ? canvas : largest;
+  }, null);
+  
+  if(!mainCanvas) return;
+  const rectChart = chartElement.getBoundingClientRect();
+  const rectCanvas = mainCanvas.getBoundingClientRect();
+  const offsetLeft = rectCanvas.left - rectChart.left;
+  const offsetTop = rectCanvas.top - rectChart.top;
+  
+  if (
+    overlayCanvas.width === mainCanvas.width &&
+    overlayCanvas.height === mainCanvas.height &&
+    overlayCanvas.style.left === offsetLeft + 'px' &&
+    overlayCanvas.style.top === offsetTop + 'px' &&
+    overlayCanvas.style.width === rectCanvas.width + 'px' &&
+    overlayCanvas.style.height === rectCanvas.height + 'px'
+  ) {
+    return;
+  }
+  
+  overlayCanvas.width = mainCanvas.width;
+  overlayCanvas.height = mainCanvas.height;
+  overlayCanvas.style.position = 'absolute';
+  overlayCanvas.style.left = offsetLeft + 'px';
+  overlayCanvas.style.top = offsetTop + 'px';
+  overlayCanvas.style.width = rectCanvas.width + 'px';
+  overlayCanvas.style.height = rectCanvas.height + 'px';
+  
+  const scaleX = mainCanvas.width / (rectCanvas.width || 1);
+  const scaleY = mainCanvas.height / (rectCanvas.height || 1);
+  overlayCanvas.getContext('2d').setTransform(scaleX, 0, 0, scaleY, 0, 0);
+}
+
+function drawLevelLineOn(ctx, series, w, price, label, color, dash){
+  const y = series.priceToCoordinate(price);
+  if(y===null) return;
+  ctx.strokeStyle = hexA(color, 0.6);
+  ctx.lineWidth = 1.25;
+  ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w-2,y); ctx.stroke();
+  ctx.setLineDash([]);
+  const text = label+' '+price.toFixed(2);
+  ctx.font = '700 13px JetBrains Mono, monospace';
+  const tw = ctx.measureText(text).width;
+  const chipW = tw+14, chipH=20;
+  const chipX = w-chipW-3, chipY = y-chipH/2;
+  ctx.fillStyle = hexA(color,0.95);
+  ctx.fillRect(chipX, chipY, chipW, chipH);
+  ctx.fillStyle = '#0b0912';
+  ctx.textAlign='left';
+  ctx.fillText(text, chipX+7, y+4.5);
+}
+
+function updateSummaryStrip() {
+  const openTrades = state.autoPaperTrades.filter(t => t.status === 'open');
+  const closedToday = state.autoPaperTrades.filter(t => {
+    if (t.status === 'open') return false;
+    const tDate = new Date(t.closeTime || t.openTime).toDateString();
+    return tDate === new Date().toDateString();
+  });
+  
+  let totalClosed = closedToday.length;
+  let wins = closedToday.filter(t => t.status === 'tp').length;
+  let winRate = totalClosed > 0 ? Math.round((wins / totalClosed) * 100) : 0;
+  
+  let totalPnL = 0;
+  closedToday.forEach(t => totalPnL += t.pnl);
+  openTrades.forEach(t => totalPnL += t.pnl);
+  
+  document.getElementById('sumSignalsCount').textContent = state.signalsFiredCount;
+  document.getElementById('sumOpenTrades').textContent = openTrades.length;
+  document.getElementById('sumWinRate').textContent = `${winRate}% (${wins}/${totalClosed})`;
+  
+  const pnlEl = document.getElementById('sumPnL');
+  if (pnlEl) {
+    pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + '$' + totalPnL.toFixed(2);
+    pnlEl.className = totalPnL >= 0 ? 'bull' : 'bear';
+  }
+}
+
+// ---- WEBSOCKET LIVE STREAM ----
+let goldWS = null;
+function handleGoldTrade(price, qty, tradeTimeMs){
+  state.autoPaperTrades.forEach(t => {
+    if (t.status !== 'open') return;
+    const pnlPoints = t.dir === 'buy' ? (price - t.entry) : (t.entry - price);
+    t.pnl = pnlPoints * 100.0;
+  });
+  updateSummaryStrip();
+  
+  const badgeEl = document.getElementById('priceNow');
+  if (badgeEl) {
+    badgeEl.textContent = price.toFixed(3);
+  }
+}
+
+function startGoldFeed(){
+  if(goldWS) return;
+  try{
+    goldWS = new WebSocket('wss://stream.binance.com:9443/ws/paxgusdt@trade');
+    goldWS.onmessage = (ev)=>{
+      try{
+        const msg = JSON.parse(ev.data);
+        handleGoldTrade(parseFloat(msg.p), parseFloat(msg.q)||0, msg.T);
+      }catch(e){}
+    };
+    goldWS.onclose = ()=>{ goldWS=null; setTimeout(startGoldFeed, 3000); };
+  }catch(err){}
+}
+
+function showToast(msg) {
+  const t = document.getElementById('alertToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>t.classList.remove('show'), 6000);
+}
+
+// ---------- INITIALIZE AND RENDER ----------
+function renderVolumeProfileTabOnStart() {
+  if (!state.candles.length) return;
+  vpCandleSeries2.setData(state.candles.map(c=>({time:c.time,open:c.open,high:c.high,low:c.low,close:c.close})));
+  state.liq = findLiquidity(state.candles);
+  state.pdpw = findPrevDayWeek(state.candles);
+  
+  setDefaultView(vpChart2, state.candles, 130);
+  renderVolumeProfileTab();
+}
+
+function setDefaultView(chartInst, candles, barsToShow){
+  barsToShow = barsToShow || 130;
+  const n = candles.length;
+  if(n<=barsToShow){ chartInst.timeScale().fitContent(); return; }
+  chartInst.timeScale().setVisibleLogicalRange({from: n-barsToShow, to: n+4});
+}
+
+renderVolumeProfileTabOnStart();
+updateSummaryStrip();
+startGoldFeed();
+
+window.addEventListener('resize', () => {
+  vpChart2.resize(chartEl.clientWidth, chartEl.clientHeight);
+  renderVolumeProfileTab();
+});
+  // ---- CYBERCORE BACKGROUND LIGHT BEAMS SPAWNER ----
+  function spawnCybercoreBeams() {
+    const scene = document.createElement('div');
+    scene.id = 'cybercoreScene';
+    scene.style = 'position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0;';
+    
+    // Floor radial glow
+    const floor = document.createElement('div');
+    floor.style = 'position:absolute; bottom:0; left:0; right:0; height:35vh; background:radial-gradient(ellipse at bottom, rgba(57,255,20,0.12), transparent 70%); opacity:0.85;';
+    scene.appendChild(floor);
+    
+    document.body.appendChild(scene);
+    
+    const beamCount = 35;
+    for (let i = 0; i < beamCount; i++) {
+      const beam = document.createElement('div');
+      const isSecondary = Math.random() < 0.15;
+      beam.className = 'cybercore-beam' + (isSecondary ? ' secondary' : '');
+      
+      const riseDur = Math.random() * 3 + 5; // 5-8s rise duration
+      const left = Math.random() * 100;
+      const width = Math.floor(Math.random() * 2) + 1;
+      const delay = Math.random() * 6;
+      
+      beam.style.left = `${left}%`;
+      beam.style.width = `${width}px`;
+      beam.style.height = `${Math.floor(Math.random() * 120) + 180}px`;
+      beam.style.animationDelay = `${delay}s`;
+      beam.style.animationDuration = `${riseDur}s, ${riseDur}s`;
+      
+      scene.appendChild(beam);
+    }
+  }
+  
+  spawnCybercoreBeams();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d250c4fd860c6a',t:'MTc4NDM4NjQwMg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

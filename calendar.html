@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aqua Terminal - Economic Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a100c;          /* Deep Blackish Forest Green */
+    --panel: #101612;       /* Translucent Deep Emerald Black */
+    --panel2: #16201a;      /* Secondary Container Dark */
+    --line: #223028;        /* Subtle Border Forest Green */
+    --gold: #39ff14;        /* Electric Neon Lime Green Accent */
+    --gold-dim: #26b30f;    /* Muted Neon Lime */
+    --bull: #f4fff4;        /* Glowing Mint White */
+    --bear: #39ff14;        /* Electric Neon Lime Green */
+    --txt: #f4fff4;         /* High Contrast Off-White Mint */
+    --txt-dim: #6d8075;     /* Muted Sage/Forest Gray */
+  }
+    *{box-sizing:border-box;}
+  
+  /* Custom Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--txt-dim);
+  }
+
+  html, body{
+    margin:0;
+    background:var(--bg);
+    color:var(--txt);
+    font-family:'Space Grotesk', sans-serif;
+    overflow-y:auto;
+    overflow-x:hidden;
+    height:100%;
+  }
+  .num{font-family:'JetBrains Mono', monospace;}
+
+  .app{display:flex;flex-direction:column;min-height:100vh;height:100%;}
+
+  /* Sticky Navigation Header */
+  .nav-header{
+    display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+    padding:12px 20px;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .brand{display:flex;align-items:center;gap:12px;margin-right:8px;}
+  .brand-mark{
+    width:28px;height:38px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .brand-mark img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 8px rgba(57,255,20,0.5));}
+  .brand-txt{font-weight:700;letter-spacing:0.8px;font-size:15px; color:var(--txt);}
+  .brand-sub{font-size:9px;color:var(--txt-dim);letter-spacing:1.5px;margin-top:-1px;font-weight:600;}
+
+  .nav-links{display:flex; gap:6px;}
+  .nav-link{
+    background:transparent; border:1px solid transparent; color:var(--txt-dim);
+    padding:6px 14px; border-radius:6px; font-size:12px; font-weight:700;
+    text-decoration:none; font-family:'Space Grotesk', sans-serif;
+    cursor:pointer;
+  }
+  .nav-link.active{
+    background:var(--panel2); border-color:var(--line); color:var(--gold);
+    box-shadow: 0 0 10px rgba(57,255,20,0.15);
+  }
+  .nav-link:hover:not(.active){color:var(--txt); background:rgba(255,255,255,0.02);}
+
+  .spacer{flex:1;}
+  .price-badge{
+    display:flex;flex-direction:column;align-items:flex-end;
+  }
+  .price-badge .p{font-family:'JetBrains Mono', monospace;font-size:20px;font-weight:700; letter-spacing:-0.5px;}
+  .price-badge .p.up{color:var(--bull); text-shadow: 0 0 12px rgba(244,255,244,0.25);}
+  .price-badge .p.down{color:var(--bear); text-shadow: 0 0 12px rgba(57,255,20,0.25);}
+  .price-badge .l{font-size:10px;color:var(--txt-dim);letter-spacing:1px;font-weight:600;}
+
+  /* Summary strip style */
+  .summary-strip {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: #08090d;
+    border-bottom: 1px solid var(--line);
+    padding: 8px 20px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--txt-dim);
+    flex-wrap: wrap;
+    z-index: 10;
+    position: relative;
+    font-weight: 500;
+  }
+  .summary-strip .val {
+    color: var(--gold);
+    font-weight: 700;
+  }
+  .summary-strip .bull {
+    color: var(--bull);
+    font-weight: 700;
+  }
+  .summary-strip .bear {
+    color: var(--bear);
+    font-weight: 700;
+  }
+
+  /* Calendar Page layout */
+  .container{
+    flex:1; padding:20px; display:flex; gap:20px; overflow:hidden;
+    max-width:1200px; margin:0 auto; width:100%;
+  }
+  .left-panel{
+    flex:1; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:20px; display:flex; flex-direction:column; gap:16px; overflow-y:auto;
+  }
+  .right-panel{
+    width:380px; flex-shrink:0; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:20px; display:flex; flex-direction:column; gap:16px; height:fit-content;
+  }
+
+  .cal-note{font-size:11px;color:var(--txt-dim);line-height:1.6;background:var(--panel2);border-radius:8px;padding:12px; border:1px solid var(--line);}
+  .cal-list{display:flex;flex-direction:column;gap:8px;}
+  .cal-item{
+    background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 16px;
+    font-size:11px;font-family:'JetBrains Mono', monospace;display:flex;justify-content:space-between;align-items:center;gap:10px;
+  }
+  .cal-item .del{background:none;border:none;color:var(--bear);cursor:pointer;font-size:16px;}
+  .cal-item .bias-up{color:var(--bull);font-weight:700;}
+  .cal-item .bias-down{color:var(--bear);font-weight:700;}
+  
+  .draw-btn{
+    background:var(--panel);border:1px solid var(--line);color:var(--txt);
+    padding:8px 16px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;
+    font-family:'JetBrains Mono', monospace; width: fit-content;
+  }
+  .draw-btn:hover{background:var(--panel2); border-color:var(--gold);}
+  
+  label{display:flex;flex-direction:column;gap:6px;font-size:11.5px;color:var(--txt-dim);font-family:'Space Grotesk', sans-serif; font-weight: 600;}
+  input, select{
+    background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);
+    padding:10px 12px;font-family:'JetBrains Mono', monospace;font-size:13px;
+    outline: none;
+  }
+  input:focus, select:focus{border-color:var(--gold); box-shadow: 0 0 8px rgba(57,255,20,0.15);}
+
+  .toast{
+    position:fixed;bottom:24px;right:24px;z-index:60;
+    background:var(--panel);
+    border:1px solid var(--gold);border-radius:8px;padding:14px 20px;
+    font-family:'JetBrains Mono', monospace;font-size:12px;color:var(--txt);
+    box-shadow:0 12px 36px rgba(0,0,0,0.6);
+    transform:translateY(20px);opacity:0;pointer-events:none;max-width:340px;
+  }
+  .toast.show{transform:translateY(0);opacity:1;}
+  /* Cybercore Background Beams Styles */
+  @keyframes rise {
+    0% { transform: translateY(110vh); opacity: 0; }
+    10% { opacity: 0.8; }
+    100% { transform: translateY(-130vh); opacity: 0; }
+  }
+  @keyframes fade {
+    0%, 100% { opacity: 0; }
+    5%, 85% { opacity: 0.6; }
+  }
+  .cybercore-beam {
+    position: absolute;
+    bottom: -250px;
+    background: linear-gradient(to top, transparent, var(--gold));
+    opacity: 0;
+    animation: rise linear infinite, fade ease-in-out infinite;
+    pointer-events: none;
+  }
+  .cybercore-beam.secondary {
+    background: linear-gradient(to top, transparent, #f4fff4);
+  }
+
+  /* Neon Button Hover Glow Border Lines */
+  .tf-btn, .draw-btn, .nav-link {
+    position: relative !important;
+    overflow: visible !important;
+  }
+  .tf-btn::before, .draw-btn::before, .nav-link::before {
+    content: '';
+    position: absolute;
+    left: 12.5%;
+    top: 0;
+    height: 1px;
+    width: 75%;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  .tf-btn::after, .draw-btn::after, .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 12.5%;
+    bottom: 0;
+    height: 1px;
+    width: 75%;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  .tf-btn:hover::before, .tf-btn:hover::after,
+  .draw-btn:hover::before, .draw-btn:hover::after,
+  .nav-link:hover::before, .nav-link:hover::after {
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Shared Premium Navigation Header -->
+  <div class="nav-header">
+    <div class="brand">
+      <div class="brand-mark"><img src="data:image/png;base64,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(t) }," alt="Aqua Terminal"></div>
+      <div>
+        <div class="brand-txt">AQUA TERMINAL</div>
+        <div class="brand-sub">XAU / USD &middot; PROFESSIONAL</div>
+      </div>
+    </div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">TERMINAL</a>
+      <a href="liquidity.html" class="nav-link">LIQUIDITY HEATMAP</a>
+      <a href="volume.html" class="nav-link">VOLUME PROFILE</a>
+      <a href="fvgob.html" class="nav-link">FVG & OB</a>
+      <a href="calendar.html" class="nav-link active">ECONOMIC CALENDAR</a>
+      <a href="journal.html" class="nav-link">TRADE JOURNAL</a>
+    </div>
+    <div class="spacer"></div>
+    <div class="price-badge">
+      <div class="p num" id="priceNow">--</div>
+      <div class="l" id="priceChange">--</div>
+    </div>
+  </div>
+
+  <!-- ALWAYS-VISIBLE SUMMARY STRIP -->
+  <div class="summary-strip" id="summaryStrip">
+    <div>📊 TODAY'S SUMMARY:</div>
+    <div>Signals Fired Today: <span class="val" id="sumSignalsCount">0</span></div>
+    <div>Open Paper Trades: <span class="val" id="sumOpenTrades">0</span></div>
+    <div>Today's Win Rate: <span class="val" id="sumWinRate">0%</span></div>
+    <div>Today's PnL: <span id="sumPnL" style="font-weight:bold;">$0.00</span></div>
+  </div>
+
+  <!-- Calendar Page Layout -->
+  <div class="container">
+    <div class="left-panel">
+      <div id="calFetchWarning" style="display:none;background:rgba(209,73,91,0.15);border:1px solid var(--bear);padding:6px 10px;border-radius:4px;font-size:11px;color:var(--bear);margin-bottom:10px;"></div>
+      
+      <!-- Auto-fetch settings / currency filter -->
+      <div style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+          <span style="font-weight:bold;color:var(--gold);">🔌 ForexFactory Auto-Fetch:</span>
+          <button class="draw-btn" id="calSyncBtn" style="padding:4px 8px;font-size:10px;margin:0;">🔄 Sync Now</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
+          <input type="checkbox" id="calFilterCheckbox" checked style="width:auto;margin:0;cursor:pointer;">
+          <label for="calFilterCheckbox" style="cursor:pointer;margin:0;">Show USD & XAU events only</label>
+        </div>
+        <div style="font-size:10px;color:var(--txt-dim);" id="calSyncStatus">Status: Fetching…</div>
+      </div>
+
+      <div class="cal-note">Events are auto-fetched from ForexFactory. Actual releases trigger automated bias alerts (sound + toast). You can also manually log any custom event using the sidebar form.</div>
+      
+      <div id="calList" class="cal-list"></div>
+    </div>
+
+    <!-- Manual Log Sidebar -->
+    <div class="right-panel">
+      <div style="font-size:12px;font-weight:bold;color:var(--gold);margin-bottom:8px;">📝 LOG CUSTOM EVENT MANUALLY</div>
+      <label>Event name<input type="text" id="calName" placeholder="e.g. US CPI (YoY)"></label>
+      <label>Date & time (UTC)<input type="datetime-local" id="calTime"></label>
+      <div style="display:flex;gap:8px;">
+        <label style="flex:1;">Forecast<input type="number" step="0.01" id="calForecast"></label>
+        <label style="flex:1;">Previous<input type="number" step="0.01" id="calPrevious"></label>
+      </div>
+      <label>Bias rule for gold
+        <select id="calRule" style="width:100%;">
+          <option value="lowerBullish">Actual LOWER than forecast → bullish for gold</option>
+          <option value="higherBullish">Actual HIGHER than forecast → bullish for gold</option>
+        </select>
+      </label>
+      <button class="draw-btn" id="calAddBtn" style="width:100%;text-align:center;padding:10px;">+ Add Event</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="alertToast"></div>
+
+<script>
+// ---------- SHARED STATE UTILITIES ----------
+const STATE_KEYS = {
+  CANDLES: 'aquaCandles',
+  AUTO_TRADES: 'aquaAutoPaperTrades',
+  CAL_EVENTS: 'aquaCalendarEvents',
+  SIGNALS_COUNT: 'aquaSignalsFiredCount',
+  SIGNALS_DATE: 'aquaSignalsFiredDate',
+  CAL_SHOW_ALL: 'aquaCalShowAllCurrencies'
+};
+
+const CAL_CACHE_KEY = 'aquaCalendarCache';
+const CAL_CACHE_TS_KEY = 'aquaCalendarCacheTimestamp';
+const CACHE_DURATION = 30 * 60 * 1000; // 30 mins
+
+const state = {
+  candles: [],
+  autoPaperTrades: [],
+  signalsFiredCount: 0,
+  calShowAllCurrencies: false,
+  allFetchedCalEvents: []
+};
+
+let calEvents = [];
+
+function loadGlobalState() {
+  try {
+    state.candles = JSON.parse(localStorage.getItem(STATE_KEYS.CANDLES)) || [];
+    state.autoPaperTrades = JSON.parse(localStorage.getItem(STATE_KEYS.AUTO_TRADES)) || [];
+    calEvents = JSON.parse(localStorage.getItem(STATE_KEYS.CAL_EVENTS)) || [];
+    state.calShowAllCurrencies = JSON.parse(localStorage.getItem(STATE_KEYS.CAL_SHOW_ALL)) || false;
+    
+    const todayStr = new Date().toDateString();
+    const savedDate = localStorage.getItem(STATE_KEYS.SIGNALS_DATE);
+    if (savedDate === todayStr) {
+      state.signalsFiredCount = parseInt(localStorage.getItem(STATE_KEYS.SIGNALS_COUNT)) || 0;
+    }
+  } catch (e) {
+    console.warn('Error loading state', e);
+  }
+}
+
+function saveCalEvents() {
+  try {
+    localStorage.setItem(STATE_KEYS.CAL_EVENTS, JSON.stringify(calEvents));
+  } catch(e){}
+}
+
+loadGlobalState();
+
+// ---------- CALENDAR CORE ENGINE ----------
+function parseFloatFromFeed(str) {
+  if (!str || str.trim() === '') return null;
+  const cleaned = str.replace(/[^0-9.-]/g, '');
+  const val = parseFloat(cleaned);
+  return isNaN(val) ? null : val;
+}
+
+async function fetchCalendarFromNetlify() {
+  const paths = [
+    '/.netlify/functions/fetch-calendar',
+    'http://localhost:8888/.netlify/functions/fetch-calendar',
+    'https://api.allorigins.win/raw?url=https://nfs.faireconomy.media/ff_calendar_thisweek.json'
+  ];
+  for (const path of paths) {
+    try {
+      const res = await fetch(path);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn(`Fetch calendar failed from ${path}:`, e);
+    }
+  }
+  throw new Error('All calendar endpoints failed');
+}
+
+async function loadAndSyncCalendar() {
+  const now = Date.now();
+  const cachedTs = parseInt(localStorage.getItem(CAL_CACHE_TS_KEY)) || 0;
+  const cachedData = localStorage.getItem(CAL_CACHE_KEY);
+  
+  if (cachedData && (now - cachedTs < CACHE_DURATION)) {
+    console.log('Using cached calendar data (30m cooldown)');
+    processCalendarData(JSON.parse(cachedData));
+    updateCalendarUIStatus(cachedTs);
+    return;
+  }
+  
+  try {
+    const data = await fetchCalendarFromNetlify();
+    localStorage.setItem(CAL_CACHE_KEY, JSON.stringify(data));
+    localStorage.setItem(CAL_CACHE_TS_KEY, now.toString());
+    processCalendarData(data);
+    updateCalendarUIStatus(now);
+    const warningEl = document.getElementById('calFetchWarning');
+    if (warningEl) warningEl.style.display = 'none';
+  } catch (e) {
+    console.error('Calendar fetch failed, using fallback', e);
+    if (cachedData) {
+      processCalendarData(JSON.parse(cachedData));
+      updateCalendarUIStatus(cachedTs);
+    }
+    const warningEl = document.getElementById('calFetchWarning');
+    if (warningEl) {
+      warningEl.style.display = 'block';
+      warningEl.textContent = 'ForexFactory auto-fetch unavailable. Add manually or try syncing again.';
+    }
+  }
+}
+
+function updateCalendarUIStatus(ts) {
+  const statusEl = document.getElementById('calSyncStatus');
+  if (statusEl && ts) {
+    statusEl.textContent = `Status: Synced at ${new Date(ts).toLocaleTimeString()}`;
+  }
+}
+
+function processCalendarData(data) {
+  if (!Array.isArray(data)) return;
+  state.allFetchedCalEvents = data;
+  
+  let updatedAny = false;
+  data.forEach(item => {
+    const country = item.country ? item.country.toUpperCase() : '';
+    const isRelevant = country === 'USD' || country === 'XAU';
+    
+    if (!state.calShowAllCurrencies && !isRelevant) return;
+    
+    const name = `${item.country}: ${item.title} [${item.impact}]`;
+    const time = Math.floor(new Date(item.date).getTime() / 1000);
+    
+    let existing = calEvents.find(ev => ev.name === name && ev.time === time);
+    
+    const feedActual = parseFloatFromFeed(item.actual);
+    const feedForecast = parseFloatFromFeed(item.forecast);
+    const feedPrevious = parseFloatFromFeed(item.previous);
+    
+    if (existing) {
+      if (existing.actual === null && feedActual !== null) {
+        existing.actual = feedActual;
+        updatedAny = true;
+        
+        // Trigger automatic bias alert!
+        const lower = existing.actual < existing.forecast;
+        const bullish = existing.rule === 'lowerBullish' ? lower : !lower;
+        const biasText = bullish ? 'BULLISH' : 'BEARISH';
+        showToast(`🎯 [NEWS OUTCOME] ${existing.name} actual: ${existing.actual} -> ${biasText} BIAS!`);
+      }
+    } else {
+      let defaultRule = 'higherBullish';
+      const lowerBullishKeywords = ['unemployment', 'jobless', 'claims'];
+      const isLowerBullish = lowerBullishKeywords.some(kw => item.title.toLowerCase().includes(kw));
+      if (isLowerBullish) defaultRule = 'lowerBullish';
+      
+      calEvents.push({
+        id: Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        name,
+        time,
+        forecast: feedForecast,
+        previous: feedPrevious,
+        actual: feedActual,
+        rule: defaultRule
+      });
+      updatedAny = true;
+    }
+  });
+  
+  if (updatedAny) {
+    saveCalEvents();
+  }
+  renderCalList();
+}
+
+function renderCalList(){
+  const el = document.getElementById('calList');
+  if(!calEvents.length){ el.innerHTML = '<div style="opacity:.5;font-size:11px;padding:20px 0;">No calendar events logged yet.</div>'; return; }
+  
+  el.innerHTML = calEvents.slice().sort((a,b)=>a.time-b.time).map(ev=>{
+    let biasHtml = '<span style="opacity:.5;">awaiting actual</span>';
+    if(ev.actual!=null){
+      const lower = ev.actual < ev.forecast;
+      const bullish = ev.rule==='lowerBullish' ? lower : !lower;
+      biasHtml = bullish ? '<span class="bias-up">BULLISH bias for Gold</span>' : '<span class="bias-down">BEARISH bias for Gold</span>';
+    }
+    const dt = new Date(ev.time*1000);
+    const actualInput = `<input type="number" step="0.01" placeholder="actual" data-actual-for="${ev.id}" value="${ev.actual??''}" style="width:75px;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:4px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:10px;">`;
+    return `<div class="cal-item">
+      <div>
+        <b style="color:var(--gold);">${ev.name}</b><br>
+        <span style="opacity:.6;">${dt.toUTCString().slice(0,22)} UTC · F:${ev.forecast??'--'} P:${ev.previous??'--'}</span><br>
+        <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">${actualInput} ${biasHtml}</div>
+      </div>
+      <button class="del" data-del-cal="${ev.id}">&times;</button>
+    </div>`;
+  }).join('');
+}
+
+// ---------- UI WIRING & LISTENERS ----------
+document.getElementById('calFilterCheckbox').checked = !state.calShowAllCurrencies;
+document.getElementById('calFilterCheckbox').addEventListener('change', e => {
+  state.calShowAllCurrencies = !e.target.checked;
+  localStorage.setItem(STATE_KEYS.CAL_SHOW_ALL, JSON.stringify(state.calShowAllCurrencies));
+  if (state.allFetchedCalEvents && state.allFetchedCalEvents.length > 0) {
+    processCalendarData(state.allFetchedCalEvents);
+  }
+});
+
+document.getElementById('calSyncBtn').addEventListener('click', () => {
+  const statusEl = document.getElementById('calSyncStatus');
+  if (statusEl) statusEl.textContent = 'Status: Force syncing...';
+  localStorage.removeItem(CAL_CACHE_TS_KEY);
+  loadAndSyncCalendar().then(() => {
+    const ts = parseInt(localStorage.getItem(CAL_CACHE_TS_KEY)) || Date.now();
+    if (statusEl) statusEl.textContent = `Status: Synced at ${new Date(ts).toLocaleTimeString()}`;
+  });
+});
+
+document.getElementById('calAddBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('calName').value.trim();
+  const timeStr = document.getElementById('calTime').value;
+  const forecast = parseFloat(document.getElementById('calForecast').value);
+  const previous = parseFloat(document.getElementById('calPrevious').value);
+  const rule = document.getElementById('calRule').value;
+  if(!name || !timeStr) return;
+  const time = Math.floor(new Date(timeStr+'Z').getTime()/1000);
+  calEvents.push({id:Date.now(), name, time, forecast, previous, actual:null, rule});
+  saveCalEvents(); renderCalList();
+  document.getElementById('calName').value=''; document.getElementById('calTime').value='';
+});
+
+document.getElementById('calList').addEventListener('click', e=>{
+  const del = e.target.closest('[data-del-cal]');
+  if(del){ calEvents = calEvents.filter(ev=>ev.id!==del.dataset.delCal && ev.id!==+del.dataset.delCal); saveCalEvents(); renderCalList(); }
+});
+
+document.getElementById('calList').addEventListener('input', e=>{
+  const inp = e.target.closest('[data-actual-for]');
+  if(!inp) return;
+  const ev = calEvents.find(x=>x.id===inp.dataset.actualFor || x.id===+inp.dataset.actualFor);
+  if(ev){
+    const val = parseFloat(inp.value);
+    ev.actual = isNaN(val) ? null : val;
+    saveCalEvents();
+  }
+});
+
+document.getElementById('calList').addEventListener('change', e=>{
+  const inp = e.target.closest('[data-actual-for]');
+  if(!inp) return;
+  const ev = calEvents.find(x=>x.id===inp.dataset.actualFor || x.id===+inp.dataset.actualFor);
+  if(ev && ev.actual !== null){
+    const lower = ev.actual < ev.forecast;
+    const bullish = ev.rule==='lowerBullish' ? lower : !lower;
+    const biasText = bullish ? 'BULLISH' : 'BEARISH';
+    showToast(`🎯 [CALENDAR ALERT] ${ev.name} manual actual filled: ${ev.actual} -> ${biasText} BIAS!`);
+    renderCalList();
+  }
+});
+
+// ---------- SHARED STATE PIPELINE ----------
+function updateSummaryStrip() {
+  const openTrades = state.autoPaperTrades.filter(t => t.status === 'open');
+  const closedToday = state.autoPaperTrades.filter(t => {
+    if (t.status === 'open') return false;
+    const tDate = new Date(t.closeTime || t.openTime).toDateString();
+    return tDate === new Date().toDateString();
+  });
+  
+  let totalClosed = closedToday.length;
+  let wins = closedToday.filter(t => t.status === 'tp').length;
+  let winRate = totalClosed > 0 ? Math.round((wins / totalClosed) * 100) : 0;
+  
+  let totalPnL = 0;
+  closedToday.forEach(t => totalPnL += t.pnl);
+  openTrades.forEach(t => totalPnL += t.pnl);
+  
+  document.getElementById('sumSignalsCount').textContent = state.signalsFiredCount;
+  document.getElementById('sumOpenTrades').textContent = openTrades.length;
+  document.getElementById('sumWinRate').textContent = `${winRate}% (${wins}/${totalClosed})`;
+  
+  const pnlEl = document.getElementById('sumPnL');
+  if (pnlEl) {
+    pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + '$' + totalPnL.toFixed(2);
+    pnlEl.className = totalPnL >= 0 ? 'bull' : 'bear';
+  }
+}
+
+// ---- WEBSOCKET LIVE STREAM ----
+let goldWS = null;
+function handleGoldTrade(price, qty, tradeTimeMs){
+  state.autoPaperTrades.forEach(t => {
+    if (t.status !== 'open') return;
+    const pnlPoints = t.dir === 'buy' ? (price - t.entry) : (t.entry - price);
+    t.pnl = pnlPoints * 100.0;
+  });
+  updateSummaryStrip();
+  
+  const badgeEl = document.getElementById('priceNow');
+  if (badgeEl) {
+    badgeEl.textContent = price.toFixed(3);
+  }
+}
+
+function startGoldFeed(){
+  if(goldWS) return;
+  try{
+    goldWS = new WebSocket('wss://stream.binance.com:9443/ws/paxgusdt@trade');
+    goldWS.onmessage = (ev)=>{
+      try{
+        const msg = JSON.parse(ev.data);
+        handleGoldTrade(parseFloat(msg.p), parseFloat(msg.q)||0, msg.T);
+      }catch(e){}
+    };
+    goldWS.onclose = ()=>{ goldWS=null; setTimeout(startGoldFeed, 3000); };
+  }catch(err){}
+}
+
+function showToast(msg) {
+  const t = document.getElementById('alertToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>t.classList.remove('show'), 6000);
+}
+
+// ---------- INITIALIZE AND START ----------
+loadAndSyncCalendar();
+updateSummaryStrip();
+startGoldFeed();
+  // ---- CYBERCORE BACKGROUND LIGHT BEAMS SPAWNER ----
+  function spawnCybercoreBeams() {
+    const scene = document.createElement('div');
+    scene.id = 'cybercoreScene';
+    scene.style = 'position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:0;';
+    
+    // Floor radial glow
+    const floor = document.createElement('div');
+    floor.style = 'position:absolute; bottom:0; left:0; right:0; height:35vh; background:radial-gradient(ellipse at bottom, rgba(57,255,20,0.12), transparent 70%); opacity:0.85;';
+    scene.appendChild(floor);
+    
+    document.body.appendChild(scene);
+    
+    const beamCount = 35;
+    for (let i = 0; i < beamCount; i++) {
+      const beam = document.createElement('div');
+      const isSecondary = Math.random() < 0.15;
+      beam.className = 'cybercore-beam' + (isSecondary ? ' secondary' : '');
+      
+      const riseDur = Math.random() * 3 + 5; // 5-8s rise duration
+      const left = Math.random() * 100;
+      const width = Math.floor(Math.random() * 2) + 1;
+      const delay = Math.random() * 6;
+      
+      beam.style.left = `${left}%`;
+      beam.style.width = `${width}px`;
+      beam.style.height = `${Math.floor(Math.random() * 120) + 180}px`;
+      beam.style.animationDelay = `${delay}s`;
+      beam.style.animationDuration = `${riseDur}s, ${riseDur}s`;
+      
+      scene.appendChild(beam);
+    }
+  }
+  
+  spawnCybercoreBeams();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d250ffedc20c6a',t:'MTc4NDM4NjQxMQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
