@@ -683,6 +683,20 @@
         <div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;min-height:140px;line-height:1.5;overflow-y:auto;" id="aiAnalysisBox">
           <div style="color:var(--txt-dim);font-style:italic;font-size:10px;">Awaiting next live social feed update or Trump tweet to analyze...</div>
         </div>
+        <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:4px;display:flex;flex-direction:column;gap:8px;">
+          <div style="font-size:11px;font-weight:bold;color:var(--gold);display:flex;align-items:center;gap:6px;">
+            💬 ASK THE AI ANALYST
+            <span style="background:rgba(57,255,20,0.15);color:var(--gold);font-size:8px;padding:1px 5px;border-radius:4px;font-weight:600;">Chat about news, price, signals & calendar</span>
+          </div>
+          <div id="aiChatLog" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;line-height:1.5;max-height:260px;min-height:80px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
+            <div style="color:var(--txt-dim);font-style:italic;font-size:10px;">Ask me anything — e.g. "why did gold move today?", "what does the flash news mean?", "summarize this week's calendar", "what's my current win rate?". Add your API key in the ⚙️ Cloud Integration Hub above (OpenAI or Groq) for live answers.</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="aiChatInput" placeholder="Type your question..." style="flex:1;padding:8px 10px;font-size:11px;background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--txt);">
+            <button id="aiChatSendBtn" class="draw-btn" style="padding:8px 14px;font-size:11px;margin:0;white-space:nowrap;">Send</button>
+          </div>
+        </div>
+
         
         <div style="font-size:11px;font-weight:bold;color:var(--gold);border-top:1px solid var(--line);padding-top:10px;margin-top:4px;">📱 LIVE SOCIAL NEWS FEED:</div>
         <div id="socialFeedList" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;font-size:10px;font-family:'JetBrains Mono',monospace;">
@@ -3586,6 +3600,127 @@
       return null;
     }
   }
+
+  // ---------- AI ANALYST CHAT (freeform Q&A about the site/news/price) ----------
+  function gatherAIChatContext() {
+    const price = document.getElementById('priceNow')?.textContent?.trim() || 'unknown';
+    const priceChange = document.getElementById('priceChange')?.textContent?.trim() || '';
+    const session = document.getElementById('sessionText')?.textContent?.trim() || '';
+    const signalsCount = document.getElementById('sumSignalsCount')?.textContent?.trim() || '0';
+    const openTrades = document.getElementById('sumOpenTrades')?.textContent?.trim() || '0';
+    const winRate = document.getElementById('sumWinRate')?.textContent?.trim() || '0%';
+    const pnl = document.getElementById('sumPnL')?.textContent?.trim() || '$0.00';
+    const marquee = document.querySelector('marquee')?.textContent?.trim() || 'No flash news right now.';
+    let calSummary = 'No calendar data loaded yet.';
+    try {
+      if (Array.isArray(state.allFetchedCalEvents) && state.allFetchedCalEvents.length) {
+        calSummary = state.allFetchedCalEvents.slice(0, 6).map(e =>
+          `${e.date || e.time || ''} ${e.currency || ''} ${e.title || e.event || ''} (forecast: ${e.forecast ?? 'n/a'}, previous: ${e.previous ?? 'n/a'})`
+        ).join(' | ');
+      }
+    } catch(e) {}
+    return `You are the SMC AI Analyst embedded inside "Aqua Terminal", a live XAU/USD (Gold) trading dashboard. Answer the user's question helpfully and concisely using this live site context when relevant:
+- Current Gold price: ${price} (${priceChange})
+- Session: ${session}
+- Today's signals fired: ${signalsCount}, open paper trades: ${openTrades}, win rate: ${winRate}, PnL: ${pnl}
+- Flash news ticker: "${marquee}"
+- Upcoming/recent economic calendar events: ${calSummary}
+Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) terminology where relevant. If you don't have enough live data to answer precisely, say so honestly instead of guessing numbers.`;
+  }
+
+  function appendChatBubble(role, text) {
+    const log = document.getElementById('aiChatLog');
+    if (!log) return;
+    const bubble = document.createElement('div');
+    if (role === 'user') {
+      bubble.style.cssText = 'align-self:flex-end;background:var(--gold);color:#06070a;padding:6px 10px;border-radius:8px;max-width:88%;font-weight:600;';
+    } else {
+      bubble.style.cssText = 'align-self:flex-start;background:var(--panel);border:1px solid var(--line);padding:6px 10px;border-radius:8px;max-width:92%;color:var(--txt);';
+    }
+    bubble.textContent = text;
+    log.appendChild(bubble);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  async function askAIAnalyst(question) {
+    const apiKey = localStorage.getItem('aquaCloudApiKey') || '';
+    const provider = localStorage.getItem('aquaCloudApiProvider') || 'local';
+
+    appendChatBubble('user', question);
+
+    if (!apiKey || provider === 'local') {
+      appendChatBubble('ai', '⚠️ No live AI connected yet. Click the ⚙️ gear icon above, paste an OpenAI or Groq API key, choose it as your AI Provider, and hit "Save & Sync Config" — then ask me again!');
+      return;
+    }
+
+    const thinkingId = 'chatThinking-' + Date.now();
+    const log = document.getElementById('aiChatLog');
+    const thinkingEl = document.createElement('div');
+    thinkingEl.id = thinkingId;
+    thinkingEl.style.cssText = 'align-self:flex-start;color:var(--txt-dim);font-size:10px;font-style:italic;';
+    thinkingEl.textContent = `Querying ${provider.toUpperCase()}...`;
+    log.appendChild(thinkingEl);
+    log.scrollTop = log.scrollHeight;
+
+    const systemPrompt = gatherAIChatContext();
+    let answer = null;
+
+    try {
+      if (provider === 'openai') {
+        const res = await fetchWithCORS('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: question }]
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          answer = data.choices?.[0]?.message?.content?.trim() || null;
+        }
+      } else if (provider === 'groq') {
+        const groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama3-8b-8192'];
+        for (const model of groqModels) {
+          try {
+            const res = await fetchWithCORS('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: question }]
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              answer = data.choices?.[0]?.message?.content?.trim() || null;
+              if (answer) break;
+            }
+          } catch(e) { console.warn('Groq model failed:', model, e); }
+        }
+      }
+    } catch (err) {
+      console.warn('AI chat call failed:', err);
+    }
+
+    document.getElementById(thinkingId)?.remove();
+    appendChatBubble('ai', answer || '⚠️ Could not reach the AI provider right now. Check your API key and internet connection, then try again.');
+  }
+
+  document.getElementById('aiChatSendBtn')?.addEventListener('click', () => {
+    const input = document.getElementById('aiChatInput');
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = '';
+    askAIAnalyst(q);
+  });
+  document.getElementById('aiChatInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('aiChatSendBtn')?.click();
+    }
+  });
+
 
   async function loadDynamicCloudConfig() {
     const url = localStorage.getItem('aquaCloudConfigUrl');
