@@ -2633,6 +2633,8 @@
     else if(key==='volume'){ initVpChart(); setTimeout(()=>{ const el=document.getElementById('gsub-volume'); vpChart2.resize(el.clientWidth, el.clientHeight); fitCanvasToChart(vpOverlay2, document.getElementById('vpChartEl')); setDefaultView(vpChart2, state.candles); renderVolumeProfileTab(); }, 30); }
     else if(key==='fvgob'){ initFvgObChart(); setTimeout(()=>{ const el=document.getElementById('fvgobChartEl'); fvgobChart.resize(el.clientWidth, el.clientHeight); fitCanvasToChart(fvgobOverlay, el); setDefaultView(fvgobChart, state.candles); drawFvgObOverlay(); }, 30); }
     else if(key==='liqmap'){ initLiqMapChart(); setTimeout(()=>{ const el=document.getElementById('gsub-liqmap'); liqmapChart.resize(el.clientWidth, el.clientHeight); fitCanvasToChart(liqHeatCanvas, document.getElementById('liqmapChartEl')); fitCanvasToChart(liqAbsOverlay, document.getElementById('liqmapChartEl')); setDefaultView(liqmapChart, state.candles, 250); drawLiqHeatBackground(); drawLiqAbsorption(); }, 30); }
+    else if(key==='calendar'){ renderCalList(); }
+    else if(key==='journal'){ renderJournal(); }
   });
 
   // ---------- UI WIRING ----------
@@ -4457,6 +4459,10 @@
   loadDrawings();
   initAutoAlertsUI();
   
+  // Render lists on start
+  renderCalList();
+  renderJournal();
+  
   // Try to sync calendar on start and set up auto background refresh every 3 minutes!
   loadAndSyncCalendar();
   setInterval(() => {
@@ -4492,5 +4498,5 @@
   });
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d1f9f21d602061',t:'MTc4NDM4Mjg0NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d202697b111fff',t:'MTc4NDM4MzE5Mg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
