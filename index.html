@@ -3449,40 +3449,115 @@
   async function callRealLiveAI(alert, apiKey, modelProvider) {
     let url = '';
     let headers = { 'Content-Type': 'application/json' };
-    let body = {};
     
     const prompt = `Analyze this financial news event for XAU/USD (Gold) spot trading and output JSON containing ONLY: "impact" (either "bull" or "bear"), "reason" (short 1-sentence SMC rationale), and "action" (very short entry recommendation). Do NOT include markdown code blocks.
     News Source: ${alert.source}
     Headline: "${alert.text}"`;
 
+    async function fetchWithCORS(targetUrl, fetchOptions) {
+      // Always try CORS proxy first to guarantee bypassing browser-level CORS blocks (both locally on file:// and on Netlify/GHPages!)
+      const proxiedUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
+      try {
+        console.log('[CORS Proxy] Attempting to proxy request through corsproxy.io:', targetUrl);
+        const pRes = await fetch(proxiedUrl, fetchOptions);
+        if (pRes.ok) return pRes;
+        console.warn('[CORS Proxy] Proxy responded with status', pRes.status, pRes.statusText);
+      } catch(e) {
+        console.warn('[CORS Proxy] Failed to reach or use CORS proxy. Trying direct...', e);
+      }
+      // Fallback or direct fetch
+      return await fetch(targetUrl, fetchOptions);
+    }
+
     if (modelProvider === 'openai') {
       url = 'https://api.openai.com/v1/chat/completions';
       headers['Authorization'] = `Bearer ${apiKey}`;
-      body = {
+      const body = {
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
       };
+      
+      try {
+        const res = await fetchWithCORS(url, { method: 'POST', headers, body: JSON.stringify(body) });
+        if (!res.ok) throw new Error('API returned status ' + res.status);
+        const resData = await res.json();
+        let content = resData.choices[0].message.content.trim();
+        if (content.startsWith('```')) {
+          content = content.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+        }
+        return JSON.parse(content);
+      } catch(err) {
+        console.warn('Real live OpenAI call failed, falling back to local simulation:', err);
+        return null;
+      }
+      
     } else if (modelProvider === 'groq') {
       url = 'https://api.groq.com/openai/v1/chat/completions';
       headers['Authorization'] = `Bearer ${apiKey}`;
-      body = {
-        model: 'llama3-8b-8192',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' }
-      };
-    } else {
+      
+      // We will try multiple Groq models in sequence in case one is deprecated or unavailable!
+      const groqModels = ['llama-3.1-8b-instant', 'llama3-8b-8192', 'llama-3.3-70b-versatile', 'mixtral-8x7b-32768'];
+      
+      for (const model of groqModels) {
+        try {
+          console.log(`[Groq AI] Querying model: ${model}`);
+          const body = {
+            model: model,
+            messages: [
+              { role: 'system', content: 'You are an API and must respond only with valid JSON. Do not include markdown.' },
+              { role: 'user', content: prompt }
+            ],
+            response_format: { type: 'json_object' }
+          };
+          
+          const res = await fetchWithCORS(url, { method: 'POST', headers, body: JSON.stringify(body) });
+          if (!res.ok) {
+            console.warn(`[Groq AI] Model ${model} returned error status ${res.status}. Trying next model...`);
+            continue;
+          }
+          const resData = await res.json();
+          let content = resData.choices[0].message.content.trim();
+          if (content.startsWith('```')) {
+            content = content.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+          }
+          console.log('[Groq AI] Successful response from model:', model);
+          return JSON.parse(content);
+        } catch(modelErr) {
+          console.warn(`[Groq AI] Failed with model ${model}:`, modelErr);
+        }
+      }
+      
+      // If we are here, all JSON mode attempts failed. Let's try one last time WITHOUT response_format
+      for (const model of ['llama-3.1-8b-instant', 'llama3-8b-8192']) {
+        try {
+          console.log(`[Groq AI Fallback] Querying model without JSON mode: ${model}`);
+          const body = {
+            model: model,
+            messages: [
+              { role: 'user', content: prompt + '\nIMPORTANT: You must return raw JSON only, no markdown wrapping, no explanation.' }
+            ]
+          };
+          const res = await fetchWithCORS(url, { method: 'POST', headers, body: JSON.stringify(body) });
+          if (!res.ok) continue;
+          const resData = await res.json();
+          let content = resData.choices[0].message.content.trim();
+          if (content.startsWith('```')) {
+            content = content.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+          }
+          const jsonStart = content.indexOf('{');
+          const jsonEnd = content.lastIndexOf('}');
+          if (jsonStart !== -1 && jsonEnd !== -1) {
+            content = content.substring(jsonStart, jsonEnd + 1);
+          }
+          return JSON.parse(content);
+        } catch(fallbackErr) {
+          console.warn(`[Groq AI Fallback] Failed for ${model}:`, fallbackErr);
+        }
+      }
+      
       return null;
-    }
-
-    try {
-      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
-      if (!res.ok) throw new Error('API returned status ' + res.status);
-      const resData = await res.json();
-      const content = resData.choices[0].message.content;
-      return JSON.parse(content);
-    } catch(err) {
-      console.warn('Real live AI call failed, falling back to local simulation:', err);
+    } else {
       return null;
     }
   }
@@ -4444,7 +4519,29 @@
     localStorage.setItem('aquaMt5License', mt5License);
     localStorage.setItem('aquaMt5Lot', mt5Lot.toString());
     
-    showToast('💾 Cloud & MT5 Hub settings saved successfully!');
+    // Trigger live verification test if key is provided and provider is active!
+    if (key && provider !== 'local') {
+      showToast(`💾 Settings saved! Verification-test of ${provider.toUpperCase()} chalu hai... 🚀`);
+      
+      // We will perform a real API check asynchronously
+      setTimeout(async () => {
+        try {
+          const testAlert = { source: 'System Test', text: 'Verify AI connection key works.' };
+          const result = await callRealLiveAI(testAlert, key, provider);
+          if (result && result.impact) {
+            showToast(`🟢 ${provider.toUpperCase()} AI verified! Makhhan connection chal raha hai! 🎯`);
+          } else {
+            showToast(`🔴 ${provider.toUpperCase()} AI verification failed! Falling back to offline simulation. Check key or CORS Proxy console errors.`);
+          }
+        } catch(e) {
+          console.error('[AI Test Error]', e);
+          showToast(`🔴 ${provider.toUpperCase()} connection failed. Running in Local Simulation mode.`);
+        }
+      }, 500);
+    } else {
+      showToast('💾 Cloud & MT5 Hub settings saved successfully!');
+    }
+    
     document.getElementById('cloudHubSettings').style.display = 'none';
     loadDynamicCloudConfig();
   });
@@ -4758,5 +4855,5 @@
   });
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d2346909506f6e',t:'MTc4NDM4NTI0MA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d25a61389bced4',t:'MTc4NDM4Njc5NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
