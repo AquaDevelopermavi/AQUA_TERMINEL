@@ -589,9 +589,39 @@
 
       <!-- DEDICATED AI NEWS TERMINAL & TRUMP TWEET FEED -->
       <div style="width:280px; flex-shrink:0; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px; height:fit-content; position:relative; z-index:10; overflow:hidden;">
-        <div style="font-size:11px;font-weight:bold;color:var(--gold);display:flex;align-items:center;gap:6px;">
-          <span>🤖 SMC AI NEWS ANALYST</span>
-          <span style="background:var(--gold);color:#06070a;font-size:8px;padding:1px 4px;border-radius:4px;font-weight:bold;">LIVE</span>
+        <div style="font-size:11px;font-weight:bold;color:var(--gold);display:flex;align-items:center;gap:6px;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span>🤖 SMC AI ANALYST</span>
+            <span style="background:var(--gold);color:#06070a;font-size:8px;padding:1px 4px;border-radius:4px;font-weight:bold;">LIVE</span>
+          </div>
+          <!-- Settings gear icon for Cloud Hub -->
+          <button id="cloudHubToggleBtn" style="background:none;border:none;color:var(--txt-dim);cursor:pointer;font-size:14px;padding:0;outline:none;">⚙️</button>
+        </div>
+        
+        <!-- Collapsible Cloud Hub settings form -->
+        <div id="cloudHubSettings" style="display:none;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:10px;flex-direction:column;gap:8px;margin-bottom:4px;">
+          <div style="font-weight:bold;color:var(--gold);margin-bottom:2px;">☁️ CLOUD INTEGRATION HUB</div>
+          <label style="font-size:9px;">Live AI API Key (OpenAI / Groq)<input type="password" id="cloudApiKey" placeholder="Paste your API Key..." style="padding:6px;font-size:10px;width:100%;margin-top:2px;"></label>
+          <label style="font-size:9px;margin-top:2px;">AI Provider
+            <select id="cloudApiProvider" style="padding:6px;font-size:10px;width:100%;margin-top:2px;">
+              <option value="local">Local Offline Model</option>
+              <option value="openai">OpenAI GPT-4o-Mini</option>
+              <option value="groq">Groq Llama 3 (Ultra-Fast)</option>
+            </select>
+          </label>
+          <label style="font-size:9px;margin-top:2px;">Dynamic Github Config JSON URL<input type="text" id="cloudConfigUrl" placeholder="https://git.io/your-gist.json..." style="padding:6px;font-size:10px;width:100%;margin-top:2px;"></label>
+          
+          <div style="border-top:1px solid var(--line); margin-top:8px; padding-top:8px; font-weight:bold; color:var(--gold);">🤖 MT5 WEBHOOK BROKER:</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;margin-top:4px;">
+            <input type="checkbox" id="mt5Enabled" style="width:auto;margin:0;cursor:pointer;">
+            <label for="mt5Enabled" style="cursor:pointer;margin:0;">Enable Auto MT5 Trading</label>
+          </div>
+          <label style="font-size:9px;margin-top:2px;">MT5 Webhook URL<input type="text" id="mt5Url" placeholder="e.g. https://ip:port or Pineconnector..." style="padding:6px;font-size:10px;width:100%;margin-top:2px;"></label>
+          <div style="display:flex;gap:4px;margin-top:2px;">
+            <label style="flex:1;font-size:9px;">License ID<input type="text" id="mt5License" placeholder="Pineconnector ID" style="padding:6px;font-size:10px;width:100%;margin-top:2px;"></label>
+            <label style="flex:1;font-size:9px;">Lot Size<input type="number" step="0.01" id="mt5Lot" value="0.10" style="padding:6px;font-size:10px;width:100%;margin-top:2px;"></label>
+          </div>
+          <button class="draw-btn" id="cloudSaveBtn" style="padding:6px;font-size:10px;width:100%;text-align:center;margin-top:6px;">💾 Save & Sync Config</button>
         </div>
         
         <div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:11px;min-height:140px;line-height:1.5;overflow-y:auto;" id="aiAnalysisBox">
@@ -813,7 +843,7 @@
 <script>
 (function(){
   const COLORS = { asian:'#5b7fd1', london:'#9a6fd6', ny:'#c9a961' };
-  // lastRangeStructure, lastRangeVolume, lastRangeFvgob, and lastRangeLiqmap are declared at the top of the IIFE
+  let lastRangeStructure=null, lastRangeVolume=null, lastRangeFvgob=null, lastRangeLiqmap=null, calEvents = [];
 
   // Single source of truth for session timing (standard forex market hours, UTC).
   function sessionInfoForHour(h){
@@ -864,7 +894,12 @@
     signalsFiredCount: 0,
     calShowAllCurrencies: false,
     allFetchedCalEvents: [],
-    autoAlertSettings: { fvg:true, ifvg:true, ob:true, bos:true, choch:true, sweep:true, absorption:true }
+    autoAlertSettings: { fvg:true, ifvg:true, ob:true, bos:true, choch:true, sweep:true, absorption:true },
+    // MT5 Webhook Integration settings
+    mt5WebhookUrl: '',
+    mt5LicenseId: '',
+    mt5Enabled: false,
+    mt5LotSize: 0.1
   };
 
   // ---------- LIVE DATA (Binance PAXG/USDT — gold-backed token, closest free
@@ -1817,9 +1852,41 @@
     if(state.ind.liq){
       state.liq.bsl.forEach(g=> drawLevelLine(w, g.price, 'BSL', '#5b7fd1', [2,3]));
       state.liq.ssl.forEach(g=> drawLevelLine(w, g.price, 'SSL', '#e08a5b', [2,3]));
+      
+      // ---- LUXALGO CLONE: EQUAL HIGHS (EQH) & EQUAL LOWS (EQL) LIQUIDITY ----
+      // Draw dotted liquidity lines connecting clustered pivot points!
+      state.liq.bsl.forEach(g => {
+        const y = candleSeries.priceToCoordinate(g.price);
+        if (y === null) return;
+        octx.strokeStyle = hexA('#f4fff4', 0.65);
+        octx.lineWidth = 1;
+        octx.setLineDash([1, 3]);
+        octx.beginPath(); octx.moveTo(0, y); octx.lineTo(w, y); octx.stroke();
+        octx.setLineDash([]);
+        
+        octx.fillStyle = '#f4fff4';
+        octx.font = 'bold 9px JetBrains Mono, monospace';
+        octx.textAlign = 'right';
+        octx.fillText('EQH (BSL Pool)', w - 8, y - 4);
+      });
+      state.liq.ssl.forEach(g => {
+        const y = candleSeries.priceToCoordinate(g.price);
+        if (y === null) return;
+        octx.strokeStyle = hexA('#39ff14', 0.65);
+        octx.lineWidth = 1;
+        octx.setLineDash([1, 3]);
+        octx.beginPath(); octx.moveTo(0, y); octx.lineTo(w, y); octx.stroke();
+        octx.setLineDash([]);
+        
+        octx.fillStyle = '#39ff14';
+        octx.font = 'bold 9px JetBrains Mono, monospace';
+        octx.textAlign = 'right';
+        octx.fillText('EQL (SSL Pool)', w - 8, y - 4);
+      });
     }
 
-    // Premium / Discount / Equilibrium — dealing range shaded, split at 50%
+    // ---- LUXALGO CLONE: PREMIUM / DISCOUNT / EQUILIBRIUM ZONES ----
+    // Shimmers the upper 50% as Premium (Sell) and lower 50% as Discount (Buy) inside the dealing range!
     if(state.ind.pd && state.pdz && state.pdz.startIdx<state.candles.length){
       const x1 = ts.timeToCoordinate(state.candles[state.pdz.startIdx].time);
       const x2 = w;
@@ -1827,23 +1894,27 @@
       const yEq = candleSeries.priceToCoordinate(state.pdz.eq);
       const yBot = candleSeries.priceToCoordinate(state.pdz.bottom);
       if(x1!==null && yTop!==null && yEq!==null && yBot!==null){
-        octx.fillStyle = 'rgba(224,73,180,0.08)';
-        octx.fillRect(x1, yTop, x2-x1, yEq-yTop);
-        octx.fillStyle = 'rgba(79,209,197,0.08)';
+        // Shimmering premium theme translucent fills
+        octx.fillStyle = 'rgba(57, 255, 20, 0.05)'; // Discount buy zone (neon lime tint)
         octx.fillRect(x1, yEq, x2-x1, yBot-yEq);
-        octx.strokeStyle='rgba(180,180,190,0.5)';
+        octx.fillStyle = 'rgba(244, 255, 244, 0.05)'; // Premium sell zone (mint white tint)
+        octx.fillRect(x1, yTop, x2-x1, yEq-yTop);
+        
+        octx.strokeStyle=hexA('#39ff14', 0.5);
         octx.setLineDash([2,3]); octx.lineWidth=1;
         octx.beginPath(); octx.moveTo(x1,yEq); octx.lineTo(x2,yEq); octx.stroke();
         octx.setLineDash([]);
-        octx.font='700 12px JetBrains Mono, monospace';
+        
+        octx.font='bold 11px JetBrains Mono, monospace';
         octx.textAlign='left';
-        octx.fillStyle='rgba(224,73,180,0.85)'; octx.fillText('PREMIUM', x1+4, yTop+11);
-        octx.fillStyle='rgba(180,180,190,0.9)'; octx.fillText('EQUILIBRIUM '+state.pdz.eq.toFixed(2), x1+4, yEq-4);
-        octx.fillStyle='rgba(79,209,197,0.9)'; octx.fillText('DISCOUNT', x1+4, yBot-4);
-        octx.font='700 10px JetBrains Mono, monospace';
+        octx.fillStyle='rgba(244, 255, 244, 0.85)'; octx.fillText('PREMIUM (Short Zone)', x1+6, yTop+14);
+        octx.fillStyle='rgba(57, 255, 20, 0.9)'; octx.fillText('EQUILIBRIUM '+state.pdz.eq.toFixed(2), x1+6, yEq-6);
+        octx.fillStyle='rgba(57, 255, 20, 0.85)'; octx.fillText('DISCOUNT (Long Zone)', x1+6, yBot-10);
+        
+        octx.font='700 9px JetBrains Mono, monospace';
         octx.textAlign='right';
-        octx.fillStyle='rgba(224,73,180,0.75)'; octx.fillText('Strong High', x2-4, yTop-3);
-        octx.fillStyle='rgba(79,209,197,0.75)'; octx.fillText('Weak Low', x2-4, yBot+11);
+        octx.fillStyle='rgba(244, 255, 244, 0.7)'; octx.fillText('Premium Extreme', x2-6, yTop-4);
+        octx.fillStyle='rgba(57, 255, 20, 0.7)'; octx.fillText('Discount Extreme', x2-6, yBot+11);
       }
     }
 
@@ -2833,6 +2904,14 @@
       state.autoPaperTrades = [];
     }
     try {
+      state.mt5Enabled = JSON.parse(localStorage.getItem('aquaMt5Enabled')) || false;
+      state.mt5WebhookUrl = localStorage.getItem('aquaMt5Url') || '';
+      state.mt5LicenseId = localStorage.getItem('aquaMt5License') || '';
+      state.mt5LotSize = parseFloat(localStorage.getItem('aquaMt5Lot')) || 0.1;
+    } catch(e) {
+      state.mt5Enabled = false;
+    }
+    try {
       state.autoAlertSettings = JSON.parse(localStorage.getItem(ALERTS_SETTINGS_KEY)) || {
         fvg: true, ifvg: true, ob: true, bos: true, choch: true, sweep: true, absorption: true
       };
@@ -2877,6 +2956,40 @@
     updateSummaryStrip();
   }
 
+  // ---- MT5 WEBHOOK EXECUTION ENGINE ----
+  async function executeMT5Webhook(trade) {
+    if (!state.mt5Enabled || !state.mt5WebhookUrl) return;
+    
+    // Pineconnector / MT5 standard webhook text format:
+    // licenseID, buy/sell, XAUUSD, sl=1980, tp=2030, risk=1
+    // Let's construct a fully compliant Pineconnector payload!
+    const license = state.mt5LicenseId || "DEMO_LICENSE";
+    const dir = trade.dir === 'buy' ? 'buy' : 'sell';
+    const symbol = 'XAUUSD';
+    const volume = `volume=${state.mt5LotSize}`;
+    const sl = `sl=${trade.sl.toFixed(2)}`;
+    const tp = `tp=${trade.tp.toFixed(2)}`;
+    
+    const payload = `${license},${dir},${symbol},${volume},${sl},${tp}`;
+    
+    try {
+      console.log('Sending live trade signal to MT5 Webhook...', payload);
+      const res = await fetch(state.mt5WebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: payload
+      });
+      if (res.ok) {
+        showToast(`🤖 [MT5 WEBHOOK] Trade executed on MetaTrader 5 successfully!`);
+      } else {
+        throw new Error('Server returned status ' + res.status);
+      }
+    } catch(err) {
+      console.warn('MT5 Webhook execution failed:', err);
+      showToast(`⚠️ [MT5 ERROR] Webhook execution failed! Check settings.`);
+    }
+  }
+
   function triggerAutoPaperTrade(en) {
     const entryPrice = en.price;
     let sl = 0;
@@ -2907,6 +3020,9 @@
     saveAutoPaperTrades();
     showToast(`📈 [AUTO TRADE] Opened ${trade.dir.toUpperCase()} at $${entryPrice.toFixed(2)} (SL: $${sl.toFixed(2)}, TP: $${tp.toFixed(2)})`);
     updateSummaryStrip();
+    
+    // Trigger real MT5 execution!
+    executeMT5Webhook(trade);
   }
 
   function triggerNewsPaperTrade(ev, bias) {
@@ -2943,6 +3059,9 @@
     A_playAlert();
     showToast(msg);
     updateSummaryStrip();
+    
+    // Trigger real MT5 execution!
+    executeMT5Webhook(trade);
   }
 
   function updateAutoPaperTrades(price) {
@@ -3208,17 +3327,123 @@
     analyzeNewsWithAI(alert);
   }
 
-  function analyzeNewsWithAI(alert) {
+  async function callRealLiveAI(alert, apiKey, modelProvider) {
+    let url = '';
+    let headers = { 'Content-Type': 'application/json' };
+    let body = {};
+    
+    const prompt = `Analyze this financial news event for XAU/USD (Gold) spot trading and output JSON containing ONLY: "impact" (either "bull" or "bear"), "reason" (short 1-sentence SMC rationale), and "action" (very short entry recommendation). Do NOT include markdown code blocks.
+    News Source: ${alert.source}
+    Headline: "${alert.text}"`;
+
+    if (modelProvider === 'openai') {
+      url = 'https://api.openai.com/v1/chat/completions';
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      body = {
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
+      };
+    } else if (modelProvider === 'groq') {
+      url = 'https://api.groq.com/openai/v1/chat/completions';
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      body = {
+        model: 'llama3-8b-8192',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
+      };
+    } else {
+      return null;
+    }
+
+    try {
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error('API returned status ' + res.status);
+      const resData = await res.json();
+      const content = resData.choices[0].message.content;
+      return JSON.parse(content);
+    } catch(err) {
+      console.warn('Real live AI call failed, falling back to local simulation:', err);
+      return null;
+    }
+  }
+
+  async function loadDynamicCloudConfig() {
+    const url = localStorage.getItem('aquaCloudConfigUrl');
+    if (!url) return;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to load JSON');
+      const config = await res.json();
+      
+      // Dynamic Theme Color Overrides
+      if (config.colors) {
+        for (const key in config.colors) {
+          document.documentElement.style.setProperty(`--${key}`, config.colors[key]);
+        }
+      }
+      
+      // Dynamic Strategy Injections (uses new Function compiled dynamically on start!)
+      if (Array.isArray(config.strategies)) {
+        config.strategies.forEach(s => {
+          const existing = STRATEGIES.find(x => x.id === s.id);
+          try {
+            const findFn = new Function('state', s.findFunction);
+            const parsedStrategy = {
+              id: s.id,
+              name: s.name,
+              desc: s.desc,
+              find() { return findFn(state); }
+            };
+            if (existing) {
+              Object.assign(existing, parsedStrategy);
+            } else {
+              STRATEGIES.push(parsedStrategy);
+              const opt = document.createElement('option');
+              opt.value = s.id; opt.textContent = 'STRATEGY: ' + s.name.toUpperCase();
+              document.getElementById('strategySelect').appendChild(opt);
+            }
+          } catch(err) {
+            console.error('Error compiling dynamic strategy ' + s.id + ':', err);
+          }
+        });
+      }
+      console.log('Dynamic Cloud Config loaded successfully!');
+    } catch(e) {
+      console.warn('Failed to load dynamic cloud config:', e);
+    }
+  }
+
+  async function analyzeNewsWithAI(alert) {
     const el = document.getElementById('aiAnalysisBox');
     if (!el) return;
+    
+    // Check if live AI credentials are saved
+    const apiKey = localStorage.getItem('aquaCloudApiKey');
+    const provider = localStorage.getItem('aquaCloudApiProvider') || 'local';
+    
+    let analysis = {
+      impact: alert.impact,
+      reason: alert.reason,
+      action: `Use ${alert.impact === 'bull' ? 'BULL' : 'BEAR'} Order Blocks & BOS Break-and-Retest setups on chart.`
+    };
+    
+    if (apiKey && provider !== 'local') {
+      el.innerHTML = `<span style="color:var(--gold); font-weight:bold;">🤖 SMC AI ANALYST:</span><br>
+        <div style="color:var(--txt-dim); font-size:10px; font-style:italic;">Querying Live AI (${provider.toUpperCase()})...</div>`;
+      const liveAnalysis = await callRealLiveAI(alert, apiKey, provider);
+      if (liveAnalysis) {
+        analysis = liveAnalysis;
+      }
+    }
     
     el.innerHTML = `<span style="color:var(--gold); font-weight:bold;">🤖 SMC AI ANALYST:</span><br>
       <div style="margin-top:6px; font-size:10px;">
         <b>Source:</b> ${alert.source}<br>
         <b>Headline:</b> "${alert.text}"<br>
-        <b>Est. Impact:</b> <span class="${alert.impact === 'bull' ? 'bull' : 'bear'}" style="font-weight:bold;">${alert.impact === 'bull' ? 'BULLISH (BUY)' : 'BEARISH (SELL)'}</span><br>
-        <b style="color:var(--gold);">SMC Rationale:</b> ${alert.reason}<br>
-        <b style="color:var(--gold);">Action:</b> Use ${alert.impact === 'bull' ? 'BULL' : 'BEAR'} Order Blocks & BOS Break-and-Retest setups on chart.
+        <b>Est. Impact:</b> <span class="${analysis.impact === 'bull' ? 'bull' : 'bear'}" style="font-weight:bold;">${analysis.impact === 'bull' ? 'BULLISH (BUY)' : 'BEARISH (SELL)'}</span><br>
+        <b style="color:var(--gold);">SMC Rationale:</b> ${analysis.reason}<br>
+        <b style="color:var(--gold);">Action:</b> ${analysis.action}
       </div>`;
   }
 
@@ -3261,7 +3486,7 @@
       
       const script = document.createElement('script');
       script.id = callbackName;
-      script.src = `https://api.allorigins.win/get?url=https://nfs.faireconomy.media/ff_calendar_thisweek.json&callback=${callbackName}`;
+      script.src = `https://api.allorigins.win/get?url=https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.json&callback=${callbackName}`;
       script.onerror = () => {
         delete window[callbackName];
         const scriptEl = document.getElementById(callbackName);
@@ -3711,7 +3936,7 @@
     if(!a || !b) return a===b;
     return a.from===b.from && a.to===b.to;
   }
-  // lastRangeStructure, lastRangeVolume, lastRangeFvgob, and lastRangeLiqmap are declared at the top of the IIFE
+  // lastRangeStructure, lastRangeVolume, lastRangeFvgob, lastRangeLiqmap, and calEvents are declared at the top of IIFE
   function syncLoop(ts){
     if(document.getElementById('goldView').classList.contains('active')){
       if(state.gsub==='structure'){
@@ -3980,7 +4205,7 @@
 
   // ---------- ECONOMIC CALENDAR (manual log + configurable bias) ----------
   const CAL_KEY = 'aquaCalendarEvents';
-  let calEvents = [];
+  // calEvents is declared at the top of IIFE
   function loadCalEvents(){
     try {
       calEvents = JSON.parse(localStorage.getItem(CAL_KEY)) || [];
@@ -4023,6 +4248,46 @@
   });
 
   // Calendar sync and filter wiring
+  // Cloud Hub settings toggle & save listeners
+  document.getElementById('cloudHubToggleBtn').addEventListener('click', () => {
+    const box = document.getElementById('cloudHubSettings');
+    box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+  });
+
+  document.getElementById('cloudSaveBtn').addEventListener('click', () => {
+    const key = document.getElementById('cloudApiKey').value.trim();
+    const provider = document.getElementById('cloudApiProvider').value;
+    const url = document.getElementById('cloudConfigUrl').value.trim();
+    
+    if (key) localStorage.setItem('aquaCloudApiKey', key);
+    else localStorage.removeItem('aquaCloudApiKey');
+    
+    localStorage.setItem('aquaCloudApiProvider', provider);
+    
+    if (url) localStorage.setItem('aquaCloudConfigUrl', url);
+    else localStorage.removeItem('aquaCloudConfigUrl');
+    
+    // Save MT5 variables
+    const mt5Enabled = document.getElementById('mt5Enabled').checked;
+    const mt5Url = document.getElementById('mt5Url').value.trim();
+    const mt5License = document.getElementById('mt5License').value.trim();
+    const mt5Lot = parseFloat(document.getElementById('mt5Lot').value) || 0.1;
+    
+    state.mt5Enabled = mt5Enabled;
+    state.mt5WebhookUrl = mt5Url;
+    state.mt5LicenseId = mt5License;
+    state.mt5LotSize = mt5Lot;
+    
+    localStorage.setItem('aquaMt5Enabled', JSON.stringify(mt5Enabled));
+    localStorage.setItem('aquaMt5Url', mt5Url);
+    localStorage.setItem('aquaMt5License', mt5License);
+    localStorage.setItem('aquaMt5Lot', mt5Lot.toString());
+    
+    showToast('💾 Cloud & MT5 Hub settings saved successfully!');
+    document.getElementById('cloudHubSettings').style.display = 'none';
+    loadDynamicCloudConfig();
+  });
+
   document.getElementById('calSyncBtn').addEventListener('click', () => {
     const statusEl = document.getElementById('calSyncStatus');
     if (statusEl) statusEl.textContent = 'Status: Syncing...';
@@ -4234,6 +4499,20 @@
   // ---------- INIT ----------
   loadCalEvents();
   loadSocialFeed();
+  loadDynamicCloudConfig();
+  
+  // Fill in saved Cloud Hub inputs on start
+  const savedKey = localStorage.getItem('aquaCloudApiKey');
+  if (savedKey) document.getElementById('cloudApiKey').value = savedKey;
+  document.getElementById('cloudApiProvider').value = localStorage.getItem('aquaCloudApiProvider') || 'local';
+  const savedUrl = localStorage.getItem('aquaCloudConfigUrl');
+  if (savedUrl) document.getElementById('cloudConfigUrl').value = savedUrl;
+  
+  // Fill in saved MT5 inputs
+  document.getElementById('mt5Enabled').checked = state.mt5Enabled;
+  document.getElementById('mt5Url').value = state.mt5WebhookUrl;
+  document.getElementById('mt5License').value = state.mt5LicenseId;
+  document.getElementById('mt5Lot').value = state.mt5LotSize;
   loadAutoTradeState();
   loadAlerts();
   loadJournal();
@@ -4275,5 +4554,5 @@
   });
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d1687f5eef6f43',t:'MTc4NDM3Njg4OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d1f43bfcc77182',t:'MTc4NDM4MjYxMQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
