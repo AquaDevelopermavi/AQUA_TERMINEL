@@ -483,6 +483,7 @@
       <button class="gsub-tab" data-gsub="volume">VOLUME PROFILE</button>
       <button class="gsub-tab" data-gsub="fvgob">FVG / OB / DAILY-WEEKLY</button>
       <button class="gsub-tab" data-gsub="liqmap">LIQUIDITY + ABSORPTION</button>
+      <button class="gsub-tab" data-gsub="footprint">👣 FOOTPRINT</button>
       <button class="gsub-tab" data-gsub="calendar">📅 CALENDAR</button>
       <button class="gsub-tab" data-gsub="journal">📓 JOURNAL</button>
     </div>
@@ -688,6 +689,13 @@
         <label style="font-size:10px;">PnL Result ($)<input type="number" step="0.01" id="jrResult" placeholder="e.g. +1200 or -600"></label>
         <label style="font-size:10px;">Notes / Strategy used<input type="text" id="jrNotes" placeholder="e.g. ICT Silver Bullet win"></label>
         <button class="draw-btn" id="jrAddBtn" style="width:100%;text-align:center;padding:8px;font-size:11px;">+ Log Trade</button>
+      </div>
+    </div>
+
+    <!-- DEDICATED FULL-SIZE FOOTPRINT ORDER FLOW VIEW -->
+    <div class="gsub-view" id="gsub-footprint">
+      <div class="chart-wrap">
+        <canvas id="footprintCanvas" style="position:absolute; inset:0;"></canvas>
       </div>
     </div>
 
@@ -1468,6 +1476,9 @@
     chart.resize(w,h);
     fitCanvasToChart(overlay, chartEl);
     scheduleRedraw();
+    if (state.gsub === 'footprint') {
+      drawFootprintChart();
+    }
   }
   new ResizeObserver(resizeAll).observe(document.querySelector('.main'));
 
@@ -2492,6 +2503,143 @@
     }).join(' &nbsp;|&nbsp; ');
   }
 
+  // ---- ORDER FLOW FOOTPRINT ENGINE ----
+  const footprintCanvas = document.getElementById('footprintCanvas');
+  const footprintCtx = footprintCanvas.getContext('2d');
+  let footprintScrollOffset = 0; // scroll offset for dragging footprint chart
+
+  // Generate realistic historical bid/ask order flow footprints for candles
+  function generateHistoricalFootprints() {
+    state.candles.forEach(c => {
+      if (c.footprint) return; // already exists
+      
+      const bins = {};
+      const step = 0.50; // $0.50 price increments on Gold
+      const minPrice = Math.floor(c.low / step) * step;
+      const maxPrice = Math.ceil(c.high / step) * step;
+      
+      let remainingVol = c.volume;
+      const binCount = Math.max(1, Math.round((maxPrice - minPrice) / step));
+      
+      // Distribute volume bell-curve style across candle range
+      for (let p = minPrice; p <= maxPrice; p += step) {
+        const binVol = Math.round(remainingVol / (binCount * 0.8));
+        const biasMultiplier = c.close >= c.open ? 0.58 : 0.42; // Bullish candles have more buying (ask) volume
+        const ask = Math.round(binVol * (biasMultiplier + (Math.random() - 0.5) * 0.1));
+        const bid = Math.max(0, binVol - ask);
+        
+        bins[p.toFixed(2)] = { bid, ask };
+      }
+      c.footprint = bins;
+    });
+  }
+
+  // Live WebSocket Tick footprint update
+  function updateFootprintTick(price, qty) {
+    if (!state.candles.length) return;
+    const last = state.candles[state.candles.length - 1];
+    if (!last.footprint) last.footprint = {};
+    
+    const step = 0.50;
+    const binPrice = (Math.round(price / step) * step).toFixed(2);
+    
+    if (!last.footprint[binPrice]) {
+      last.footprint[binPrice] = { bid: 0, ask: 0 };
+    }
+    
+    // Determine if it hit bid or ask based on direction
+    const prevClose = state.candles[state.candles.length - 2]?.close || price;
+    if (price >= prevClose) {
+      last.footprint[binPrice].ask += qty;
+    } else {
+      last.footprint[binPrice].bid += qty;
+    }
+  }
+
+  function drawFootprintChart() {
+    fitCanvasToChart(footprintCanvas, document.getElementById('gsub-footprint'));
+    const w = footprintCanvas.clientWidth, h = footprintCanvas.clientHeight;
+    footprintCtx.clearRect(0, 0, w, h);
+    if (!state.candles.length) return;
+    
+    generateHistoricalFootprints();
+    
+    const colWidth = 100; // Column width for each candle footprint
+    const rowHeight = 18; // Row height for each price level
+    const padding = 10;
+    
+    // Get visible candles from the end of the history
+    const visibleCount = Math.floor(w / colWidth);
+    const visibleCandles = state.candles.slice(-visibleCount);
+    
+    visibleCandles.forEach((c, cIdx) => {
+      const x = w - (visibleCandles.length - cIdx) * colWidth + footprintScrollOffset;
+      if (x < -colWidth || x > w) return;
+      
+      const bins = c.footprint || {};
+      const prices = Object.keys(bins).sort((a,b)=>parseFloat(b)-parseFloat(a));
+      
+      // Render Candle Wick & Body in background
+      const highY = h/2 - (c.high - state.candles[state.candles.length-1].close) * 10;
+      const lowY = h/2 - (c.low - state.candles[state.candles.length-1].close) * 10;
+      const openY = h/2 - (c.open - state.candles[state.candles.length-1].close) * 10;
+      const closeY = h/2 - (c.close - state.candles[state.candles.length-1].close) * 10;
+      
+      footprintCtx.strokeStyle = c.close >= c.open ? 'rgba(8, 153, 129, 0.25)' : 'rgba(242, 54, 117, 0.25)';
+      footprintCtx.lineWidth = 1;
+      footprintCtx.beginPath(); footprintCtx.moveTo(x + colWidth/2, highY); footprintCtx.lineTo(x + colWidth/2, lowY); footprintCtx.stroke();
+      
+      // Render Bid/Ask columns inside each price cell
+      prices.forEach((pStr, rIdx) => {
+        const priceVal = parseFloat(pStr);
+        const y = h/2 - (priceVal - state.candles[state.candles.length-1].close) * 12 + rIdx * rowHeight - 150;
+        if (y < -rowHeight || y > h) return;
+        
+        const bin = bins[pStr];
+        const bid = bin.bid;
+        const ask = bin.ask;
+        const total = bid + ask;
+        
+        // Find POC of this bar
+        const isPOC = total === Math.max(...Object.values(bins).map(b => b.bid + b.ask));
+        
+        // Color coding for imbalances: buying imbalance (green) / selling imbalance (red)
+        let bgStyle = 'rgba(255,255,255,0.02)';
+        if (ask > bid * 1.4 && total > 0) bgStyle = 'rgba(8, 153, 129, 0.16)';
+        else if (bid > ask * 1.4 && total > 0) bgStyle = 'rgba(242, 54, 117, 0.16)';
+        
+        footprintCtx.fillStyle = bgStyle;
+        footprintCtx.fillRect(x + 2, y, colWidth - 4, rowHeight - 2);
+        
+        if (isPOC) {
+          footprintCtx.strokeStyle = 'rgba(255,196,92,0.8)'; // Yellow outline for Point of Control (POC)!
+          footprintCtx.lineWidth = 1.25;
+          footprintCtx.strokeRect(x + 2, y, colWidth - 4, rowHeight - 2);
+        } else {
+          footprintCtx.strokeStyle = 'var(--line)';
+          footprintCtx.lineWidth = 0.5;
+          footprintCtx.strokeRect(x + 2, y, colWidth - 4, rowHeight - 2);
+        }
+        
+        // Render Text: Bid x Ask (e.g. 12 x 15)
+        const formatVol = v => v >= 1000 ? (v/1000).toFixed(1) + 'K' : Math.round(v);
+        const text = `${formatVol(bid)} x ${formatVol(ask)}`;
+        footprintCtx.font = isPOC ? 'bold 9px JetBrains Mono, monospace' : '9px JetBrains Mono, monospace';
+        footprintCtx.fillStyle = isPOC ? 'var(--gold)' : 'var(--txt)';
+        footprintCtx.textAlign = 'center';
+        footprintCtx.fillText(text, x + colWidth/2, y + rowHeight/2 + 3);
+        
+        // Render price label on left of first column
+        if (cIdx === 0) {
+          footprintCtx.fillStyle = 'var(--txt-dim)';
+          footprintCtx.font = '8px JetBrains Mono, monospace';
+          footprintCtx.textAlign = 'left';
+          footprintCtx.fillText(priceVal.toFixed(1), x - 35, y + rowHeight/2 + 3);
+        }
+      });
+    });
+  }
+
   // ---- Liquidity Heatmap + Absorption tab ----
   function initLiqMapChart(){
     if(liqmapInited) return;
@@ -2665,6 +2813,7 @@
     else if(key==='liqmap'){ initLiqMapChart(); setTimeout(()=>{ const el=document.getElementById('gsub-liqmap'); liqmapChart.resize(el.clientWidth, el.clientHeight); fitCanvasToChart(liqHeatCanvas, document.getElementById('liqmapChartEl')); fitCanvasToChart(liqAbsOverlay, document.getElementById('liqmapChartEl')); setDefaultView(liqmapChart, state.candles, 250); drawLiqHeatBackground(); drawLiqAbsorption(); }, 30); }
     else if(key==='calendar'){ renderCalList(); }
     else if(key==='journal'){ renderJournal(); }
+    else if(key==='footprint'){ drawFootprintChart(); }
   });
 
   // ---------- UI WIRING ----------
@@ -3636,6 +3785,12 @@
     // Update auto paper trades on every tick
     updateAutoPaperTrades(price);
     
+    // Update live footprint bins on every tick
+    updateFootprintTick(price, qty);
+    if (state.gsub === 'footprint') {
+      drawFootprintChart();
+    }
+    
     const step = state.tf*60;
     const tradeTime = Math.floor(tradeTimeMs/1000);
     const bucketStart = Math.floor(tradeTime/step)*step;
@@ -3647,12 +3802,17 @@
       candles.push(bar);
       if(candles.length>1000) candles.shift();
       candleSeries.update({time:bar.time, open:bar.open, high:bar.high, low:bar.low, close:bar.close});
-      volSeries.update({time:bar.time, value:bar.volume, color:'#f7f1ff55'});
+      volSeries.update({time:bar.time, value:bar.volume, color:'#f4fff433'});
       recomputeIndicators();
-      checkNewAlerts();
+      checkAutoAlerts();
       checkPatternAlerts();
       updateSessionStrip();
       scheduleRedraw();
+      
+      // Live update Footprint
+      if (state.gsub === 'footprint') {
+        drawFootprintChart();
+      }
     } else {
       last.high = Math.max(last.high, price);
       last.low = Math.min(last.low, price);
@@ -4598,5 +4758,5 @@
   });
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d21dd17d861a5d',t:'MTc4NDM4NDMxNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d2346909506f6e',t:'MTc4NDM4NTI0MA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
