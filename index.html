@@ -159,7 +159,7 @@
   .fs-toolbar button.active{background:var(--panel); border-color:var(--gold); color:var(--gold);}
   .fs-toolbar button:hover{color:var(--txt);}
   .fs-toolbar input[type=color]{width:26px;height:26px;border:none;background:none;padding:0;cursor:pointer;}
-  #drawToolbar.fs-elevated{position:fixed !important; top:14px; left:14px; z-index:10000 !important;}}
+  #drawToolbar.fs-elevated{position:fixed !important; top:14px; left:14px; z-index:10000 !important;}
   #chart{position:absolute;inset:0;}
   #overlay{position:absolute;inset:0;pointer-events:none;}
   #fvgobChartEl, #liqmapChartEl, #vpChartEl{position:absolute;inset:0;}
@@ -5311,10 +5311,17 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x1,0); ctx.lineTo(x1,h); ctx.stroke();
 
-        ctx.font = '600 10px Space Grotesk, sans-serif';
-        ctx.fillStyle = sess.color;
         const label = sess.name === 'ASIA' ? 'ACCUMULATION' : sess.name === 'LONDON' ? 'MANIPULATION' : 'DISTRIBUTION';
-        ctx.fillText(sess.name + ' — ' + label, x1+6, 16);
+        const labelYOffset = sess.name === 'ASIA' ? 16 : sess.name === 'LONDON' ? 34 : 52;
+        const txt = sess.name + ' \u2022 ' + label;
+        ctx.font = '700 10px Space Grotesk, sans-serif';
+        const txtW = ctx.measureText(txt).width;
+        ctx.fillStyle = sess.color;
+        ctx.globalAlpha = 0.9;
+        ctx.fillRect(x1+4, labelYOffset-11, txtW+10, 15);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#06070a';
+        ctx.fillText(txt, x1+9, labelYOffset);
 
         if(sess.name === 'ASIA' && typeof window.state !== 'undefined' && window.state.candles){
           const dayCandles = window.state.candles.filter(c => c.time >= sess.s && c.time < sess.e);
