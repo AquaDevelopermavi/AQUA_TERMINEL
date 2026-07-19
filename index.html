@@ -518,22 +518,23 @@
         <option value="">STRATEGY: NONE (ALL INDICATORS ACTIVE)</option>
       </select>
 
-      <div style="position:relative;">
-        <button id="indicatorsBarBtn" style="background:var(--panel);color:var(--gold);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:6px;">
+      <details id="indicatorsDetails" style="position:relative;">
+        <summary id="indicatorsBarBtn" style="list-style:none;background:var(--panel);color:var(--gold);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:bold;cursor:pointer;display:inline-flex;align-items:center;gap:6px;user-select:none;">
           📊 INDICATORS <span id="indicatorsActiveCount" style="background:var(--gold);color:#06070a;border-radius:10px;padding:0 6px;font-size:10px;">0</span>
-        </button>
-        <div id="indicatorsPanel" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;max-height:420px;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.5), 0 0 20px rgba(255,45,149,0.08);z-index:50;padding:10px;">
+        </summary>
+        <div id="indicatorsPanel" style="position:absolute;top:calc(100% + 6px);left:0;width:340px;max-height:420px;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.5), 0 0 20px rgba(255,45,149,0.08);z-index:9000;padding:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <span style="font-size:11px;font-weight:800;color:var(--gold);letter-spacing:0.5px;">CUSTOM INDICATORS</span>
             <div style="display:flex;gap:6px;">
-              <button id="indicatorsAllOnBtn" style="background:transparent;border:1px solid var(--line);color:var(--txt-dim);font-size:9px;padding:3px 8px;border-radius:5px;cursor:pointer;">All On</button>
-              <button id="indicatorsAllOffBtn" style="background:transparent;border:1px solid var(--line);color:var(--txt-dim);font-size:9px;padding:3px 8px;border-radius:5px;cursor:pointer;">All Off</button>
+              <button id="indicatorsAllOnBtn" type="button" style="background:transparent;border:1px solid var(--line);color:var(--txt-dim);font-size:9px;padding:3px 8px;border-radius:5px;cursor:pointer;">All On</button>
+              <button id="indicatorsAllOffBtn" type="button" style="background:transparent;border:1px solid var(--line);color:var(--txt-dim);font-size:9px;padding:3px 8px;border-radius:5px;cursor:pointer;">All Off</button>
             </div>
           </div>
           <div id="indicatorsList" style="display:flex;flex-direction:column;gap:2px;"></div>
           <div style="font-size:9px;color:var(--txt-dim);margin-top:8px;border-top:1px solid var(--line);padding-top:8px;">More indicators can be added here anytime — this panel is fully modular.</div>
         </div>
-      </div>
+      </details>
+      <style>#indicatorsDetails summary::-webkit-details-marker{display:none;} #indicatorsDetails summary::marker{content:'';}</style>
     </div>
     <div class="gsub-body">
 
@@ -5276,16 +5277,10 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     listEl.innerHTML = html;
   }
 
-  document.getElementById('indicatorsBarBtn')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const panel = document.getElementById('indicatorsPanel');
-    if(panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-  });
   document.addEventListener('click', (e) => {
-    const panel = document.getElementById('indicatorsPanel');
-    const btn = document.getElementById('indicatorsBarBtn');
-    if(panel && panel.style.display !== 'none' && !panel.contains(e.target) && e.target !== btn){
-      panel.style.display = 'none';
+    const details = document.getElementById('indicatorsDetails');
+    if(details && details.open && !details.contains(e.target)){
+      details.removeAttribute('open');
     }
   });
   document.getElementById('indicatorsList')?.addEventListener('change', (e) => {
