@@ -595,7 +595,7 @@
           "height": "420",
           "locale": "en",
           "importanceFilter": "-1,0,1",
-          "countryFilter": "us,eu,gb,jp,cn,au,ca,ch,nz"
+          "countryFilter": "us"
           }
           </script>
         </div>
@@ -2668,6 +2668,11 @@
   }
 
   function drawFootprintChart() {
+    const _cs = getComputedStyle(document.documentElement);
+    const cLine = _cs.getPropertyValue('--line').trim() || '#3a1a35';
+    const cGold = _cs.getPropertyValue('--gold').trim() || '#ff2d95';
+    const cTxt = _cs.getPropertyValue('--txt').trim() || '#fff5fb';
+    const cTxtDim = _cs.getPropertyValue('--txt-dim').trim() || '#9c7a92';
     fitCanvasToChart(footprintCanvas, document.getElementById('gsub-footprint'));
     const w = footprintCanvas.clientWidth, h = footprintCanvas.clientHeight;
     footprintCtx.clearRect(0, 0, w, h);
@@ -2696,7 +2701,7 @@
       const openY = h/2 - (c.open - state.candles[state.candles.length-1].close) * 10;
       const closeY = h/2 - (c.close - state.candles[state.candles.length-1].close) * 10;
       
-      footprintCtx.strokeStyle = c.close >= c.open ? 'rgba(8, 153, 129, 0.25)' : 'rgba(242, 54, 117, 0.25)';
+      footprintCtx.strokeStyle = c.close >= c.open ? 'rgba(255,245,251,0.25)' : 'rgba(255,45,149,0.35)';
       footprintCtx.lineWidth = 1;
       footprintCtx.beginPath(); footprintCtx.moveTo(x + colWidth/2, highY); footprintCtx.lineTo(x + colWidth/2, lowY); footprintCtx.stroke();
       
@@ -2716,8 +2721,8 @@
         
         // Color coding for imbalances: buying imbalance (green) / selling imbalance (red)
         let bgStyle = 'rgba(255,255,255,0.02)';
-        if (ask > bid * 1.4 && total > 0) bgStyle = 'rgba(8, 153, 129, 0.16)';
-        else if (bid > ask * 1.4 && total > 0) bgStyle = 'rgba(242, 54, 117, 0.16)';
+        if (ask > bid * 1.4 && total > 0) bgStyle = 'rgba(255,245,251,0.14)';
+        else if (bid > ask * 1.4 && total > 0) bgStyle = 'rgba(255,45,149,0.18)';
         
         footprintCtx.fillStyle = bgStyle;
         footprintCtx.fillRect(x + 2, y, colWidth - 4, rowHeight - 2);
@@ -2727,7 +2732,7 @@
           footprintCtx.lineWidth = 1.25;
           footprintCtx.strokeRect(x + 2, y, colWidth - 4, rowHeight - 2);
         } else {
-          footprintCtx.strokeStyle = 'var(--line)';
+          footprintCtx.strokeStyle = cLine;
           footprintCtx.lineWidth = 0.5;
           footprintCtx.strokeRect(x + 2, y, colWidth - 4, rowHeight - 2);
         }
@@ -2736,13 +2741,13 @@
         const formatVol = v => v >= 1000 ? (v/1000).toFixed(1) + 'K' : Math.round(v);
         const text = `${formatVol(bid)} x ${formatVol(ask)}`;
         footprintCtx.font = isPOC ? 'bold 9px JetBrains Mono, monospace' : '9px JetBrains Mono, monospace';
-        footprintCtx.fillStyle = isPOC ? 'var(--gold)' : 'var(--txt)';
+        footprintCtx.fillStyle = isPOC ? cGold : cTxt;
         footprintCtx.textAlign = 'center';
         footprintCtx.fillText(text, x + colWidth/2, y + rowHeight/2 + 3);
         
         // Render price label on left of first column
         if (cIdx === 0) {
-          footprintCtx.fillStyle = 'var(--txt-dim)';
+          footprintCtx.fillStyle = cTxtDim;
           footprintCtx.font = '8px JetBrains Mono, monospace';
           footprintCtx.textAlign = 'left';
           footprintCtx.fillText(priceVal.toFixed(1), x - 35, y + rowHeight/2 + 3);
@@ -3697,7 +3702,23 @@
 - Today's signals fired: ${signalsCount}, open paper trades: ${openTrades}, win rate: ${winRate}, PnL: ${pnl}
 - Flash news ticker: "${marquee}"
 - Upcoming/recent economic calendar events: ${calSummary}
+
+You also act as the site's onboarding guide. If the user asks how to use a feature, explain it clearly using this reference:
+- STRUCTURE tab: main chart with BOS/CHoCH, FVG, Order Blocks, liquidity sweeps, premium/discount zones. Toggle indicators via the checkboxes above the chart.
+- VOLUME PROFILE tab: shows traded volume by price level (POC/VAH/VAL) for the visible range.
+- FVG/OB/DAILY-WEEKLY tab: highlights Fair Value Gaps, Order Blocks, and prior daily/weekly highs-lows.
+- LIQUIDITY + ABSORPTION tab: resting liquidity heatmap plus absorption/large-order circles.
+- FOOTPRINT tab: per-candle bid x ask order flow footprint, POC outlined in gold, buy/sell imbalances highlighted.
+- CALENDAR tab: live USD economic calendar (TradingView), plus a custom ForexFactory-style tracker below with SMC AI sentiment (BUY/SELL GOLD) per event.
+- JOURNAL tab: log manual trades (direction, entry, exit, PnL, notes) to track performance.
+- Drawing tools (top toolbar): Trend line, Ray, Fib, Zone, and Clear — click a tool then click/drag on the chart, same as TradingView.
+- Scroll below the main terminal: Live Buyer vs Seller Pressure gauge, CVD (Cumulative Volume Delta) chart, Delta Volume Profile, and the Accumulation/Manipulation/Distribution (AMD) chart with session zones.
+- ⚙️ Cloud Integration Hub: paste an OpenAI/Groq API key here and select it as Provider so this AI chat works with live answers.
+- 🔔 ALERTS: set price or pattern-based alerts (sound + toast) from the top toolbar.
+- 📐 RISK: position size/risk calculator based on account balance, risk %, entry and stop-loss.
+
 Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) terminology where relevant. If you don't have enough live data to answer precisely, say so honestly instead of guessing numbers.`;
+
   }
 
   function appendChatBubble(role, text) {
