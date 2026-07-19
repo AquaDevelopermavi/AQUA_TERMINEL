@@ -789,23 +789,57 @@
 <div style="max-width:1300px;margin:0 auto;width:100%;padding:24px 20px;display:flex;flex-direction:column;gap:24px;">
 
   <!-- Buyer vs Seller Pressure Panel -->
-  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;">
+  <div style="background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 0 30px rgba(255,45,149,0.05);">
     <div style="font-size:14px;font-weight:800;color:var(--gold);letter-spacing:0.5px;margin-bottom:2px;">📊 LIVE BUYER vs SELLER PRESSURE</div>
-    <div style="font-size:10.5px;color:var(--txt-dim);margin-bottom:14px;">Derived from the last 20 candles' direction, weighted by volume. Updates every few seconds.</div>
-    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+    <div style="font-size:10.5px;color:var(--txt-dim);margin-bottom:16px;">Derived from the last 20 candles' direction, weighted by volume. Updates every few seconds.</div>
+    <div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;">
+
+      <div style="position:relative;width:130px;height:130px;flex-shrink:0;">
+        <div id="pressureGauge" style="width:130px;height:130px;border-radius:50%;background:conic-gradient(var(--bull) 0deg, var(--bull) 180deg, var(--bear) 180deg, var(--bear) 360deg);display:flex;align-items:center;justify-content:center;transition:background 0.8s ease;box-shadow:0 0 24px rgba(255,45,149,0.25), inset 0 0 20px rgba(0,0,0,0.4);">
+          <div style="width:96px;height:96px;border-radius:50%;background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div id="gaugePct" style="font-size:22px;font-weight:800;color:var(--txt);line-height:1;">--%</div>
+            <div id="gaugeLabel" style="font-size:8.5px;color:var(--txt-dim);font-weight:700;letter-spacing:0.5px;margin-top:2px;">BUYERS</div>
+          </div>
+        </div>
+      </div>
+
       <div style="flex:1;min-width:220px;">
         <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:6px;">
           <span style="color:var(--bull);">🟢 BUYERS <span id="buyPct">--</span>%</span>
           <span style="color:var(--bear);">SELLERS <span id="sellPct">--</span>% 🔴</span>
         </div>
-        <div style="height:10px;border-radius:6px;overflow:hidden;background:var(--panel2);border:1px solid var(--line);display:flex;">
-          <div id="buyBar" style="height:100%;background:var(--bull);width:50%;transition:width 0.6s ease;"></div>
-          <div id="sellBar" style="height:100%;background:var(--bear);width:50%;transition:width 0.6s ease;"></div>
+        <div style="height:12px;border-radius:8px;overflow:hidden;background:var(--panel2);border:1px solid var(--line);display:flex;box-shadow:inset 0 0 8px rgba(0,0,0,0.4);">
+          <div id="buyBar" style="height:100%;background:linear-gradient(90deg,var(--bull),#ffd6ec);width:50%;transition:width 0.6s ease;box-shadow:0 0 10px var(--bull);"></div>
+          <div id="sellBar" style="height:100%;background:linear-gradient(90deg,#ff6bb0,var(--bear));width:50%;transition:width 0.6s ease;box-shadow:0 0 10px var(--bear);"></div>
         </div>
-        <div id="pressureVerdict" style="margin-top:8px;font-size:11.5px;font-weight:700;color:var(--gold);">Analyzing order flow…</div>
+        <div id="pressureVerdict" style="margin-top:10px;font-size:12px;font-weight:700;color:var(--gold);">Analyzing order flow…</div>
+
+        <div style="display:flex;gap:16px;margin-top:14px;font-size:10.5px;">
+          <div>
+            <div style="color:var(--txt-dim);">CVD (session)</div>
+            <div id="cvdReadout" style="color:var(--txt);font-weight:700;font-size:13px;">--</div>
+          </div>
+          <div>
+            <div style="color:var(--txt-dim);">Net Delta (last 20)</div>
+            <div id="deltaReadout" style="color:var(--txt);font-weight:700;font-size:13px;">--</div>
+          </div>
+        </div>
       </div>
-      <div id="pressureDots" style="display:flex;flex-wrap:wrap;gap:5px;max-width:260px;"></div>
     </div>
+  </div>
+
+  <!-- CVD (Cumulative Volume Delta) Chart -->
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;">
+    <div style="font-size:14px;font-weight:800;color:var(--gold);letter-spacing:0.5px;margin-bottom:2px;">📈 CVD — CUMULATIVE VOLUME DELTA</div>
+    <div style="font-size:10.5px;color:var(--txt-dim);margin-bottom:10px;">Running total of (buy volume − sell volume) per candle. Rising CVD = aggressive buying; falling = aggressive selling.</div>
+    <div id="cvdChart" style="width:100%;height:180px;"></div>
+  </div>
+
+  <!-- Delta Volume Profile -->
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;">
+    <div style="font-size:14px;font-weight:800;color:var(--gold);letter-spacing:0.5px;margin-bottom:2px;">📊 DELTA VOLUME PROFILE</div>
+    <div style="font-size:10.5px;color:var(--txt-dim);margin-bottom:12px;">Net buy/sell volume per price level. White = net buying, pink = net selling at that price.</div>
+    <div id="deltaProfile" style="display:flex;flex-direction:column-reverse;gap:1px;max-height:340px;overflow-y:auto;"></div>
   </div>
 
   <!-- AMD Chart -->
@@ -951,7 +985,9 @@
     mt5LicenseId: '',
     mt5Enabled: false,
     mt5LotSize: 0.1
-  };
+  }
+  window.state = state; // exposed globally so external scripts (pressure panel, AMD chart) can read live candle data
+;
 
   // ---------- LIVE DATA (Binance PAXG/USDT — gold-backed token, closest free
   // public proxy for spot XAU/USD; there is no free public API for direct
@@ -5055,26 +5091,23 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
 <script>
 (function(){
   // ---------- BUYER/SELLER PRESSURE PANEL ----------
-  function renderPressureDots(buyPct){
-    const wrap = document.getElementById('pressureDots');
-    if(!wrap) return;
-    wrap.innerHTML = '';
-    const totalDots = 40;
-    const greenDots = Math.round(totalDots * (buyPct/100));
-    for(let i=0;i<totalDots;i++){
-      const d = document.createElement('div');
-      const isBuy = i < greenDots;
-      d.style.cssText = 'width:9px;height:9px;border-radius:50%;background:' + (isBuy ? 'var(--bull)' : 'var(--bear)') +
-        ';box-shadow:0 0 6px ' + (isBuy ? 'var(--bull)' : 'var(--bear)') +
-        ';opacity:0;animation:amdDotFade 0.4s ease forwards;animation-delay:' + (i*15) + 'ms;';
-      wrap.appendChild(d);
-    }
+  function updatePressureGauge(buyPct){
+    const gauge = document.getElementById('pressureGauge');
+    const gaugePct = document.getElementById('gaugePct');
+    const gaugeLabel = document.getElementById('gaugeLabel');
+    if(!gauge) return;
+    const deg = Math.round((buyPct/100) * 360);
+    gauge.style.background = `conic-gradient(var(--bull) 0deg, var(--bull) ${deg}deg, var(--bear) ${deg}deg, var(--bear) 360deg)`;
+    const dominant = buyPct >= 50 ? buyPct : (100-buyPct);
+    gaugePct.textContent = dominant + '%';
+    gaugePct.style.color = buyPct >= 50 ? 'var(--bull)' : 'var(--bear)';
+    gaugeLabel.textContent = buyPct >= 50 ? 'BUYERS' : 'SELLERS';
   }
 
   function updateBuyerSellerPressure(){
     try {
-      if(typeof state === 'undefined' || !state.candles || state.candles.length < 5) return;
-      const recent = state.candles.slice(-20);
+      if(typeof window.state === 'undefined' || !window.state.candles || window.state.candles.length < 5) return;
+      const recent = window.state.candles.slice(-20);
       let buyVol = 0, sellVol = 0;
       recent.forEach(c => {
         const vol = c.volume || 1;
@@ -5097,7 +5130,23 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
         else if(sellPct >= 60) verdict.innerHTML = '🔴 Sellers firmly in control — bearish pressure dominant.';
         else verdict.innerHTML = '⚪ Balanced order flow — no clear directional control yet.';
       }
-      renderPressureDots(buyPct);
+      updatePressureGauge(buyPct);
+
+      let netDelta = 0;
+      recent.forEach(c => { const vol = c.volume || 1; netDelta += (c.close >= c.open ? vol : -vol); });
+      const deltaEl = document.getElementById('deltaReadout');
+      if(deltaEl){
+        deltaEl.textContent = (netDelta>=0?'+':'') + Math.round(netDelta).toLocaleString();
+        deltaEl.style.color = netDelta>=0 ? 'var(--bull)' : 'var(--bear)';
+      }
+
+      let cvd = 0;
+      window.state.candles.forEach(c => { const vol = c.volume || 1; cvd += (c.close >= c.open ? vol : -vol); });
+      const cvdEl = document.getElementById('cvdReadout');
+      if(cvdEl){
+        cvdEl.textContent = (cvd>=0?'+':'') + Math.round(cvd).toLocaleString();
+        cvdEl.style.color = cvd>=0 ? 'var(--bull)' : 'var(--bear)';
+      }
     } catch(e) { console.warn('Pressure panel error:', e); }
   }
   setInterval(updateBuyerSellerPressure, 4000);
@@ -5183,8 +5232,8 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
         const label = sess.name === 'ASIA' ? 'ACCUMULATION' : sess.name === 'LONDON' ? 'MANIPULATION' : 'DISTRIBUTION';
         ctx.fillText(sess.name + ' — ' + label, x1+6, 16);
 
-        if(sess.name === 'ASIA' && typeof state !== 'undefined' && state.candles){
-          const dayCandles = state.candles.filter(c => c.time >= sess.s && c.time < sess.e);
+        if(sess.name === 'ASIA' && typeof window.state !== 'undefined' && window.state.candles){
+          const dayCandles = window.state.candles.filter(c => c.time >= sess.s && c.time < sess.e);
           if(dayCandles.length){
             const hi = Math.max(...dayCandles.map(c=>c.high));
             const lo = Math.min(...dayCandles.map(c=>c.low));
@@ -5207,8 +5256,8 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
           ctx.beginPath(); ctx.moveTo(x1,y2); ctx.lineTo(x2,y2); ctx.stroke();
           ctx.setLineDash([]);
 
-          if(typeof state !== 'undefined' && state.candles){
-            const afterAsia = state.candles.filter(c => c.time >= asianRange.e && c.time <= (asianRange.e + 8*3600));
+          if(typeof window.state !== 'undefined' && window.state.candles){
+            const afterAsia = window.state.candles.filter(c => c.time >= asianRange.e && c.time <= (asianRange.e + 8*3600));
             const sweepUp = afterAsia.find(c => c.high > asianRange.hi);
             const sweepDown = afterAsia.find(c => c.low < asianRange.lo);
             const sweep = sweepUp || sweepDown;
@@ -5234,20 +5283,91 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
 
   function syncAMDData(){
     try {
-      if(!amdReady || typeof state === 'undefined' || !state.candles || !state.candles.length) return;
-      const data = state.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
+      if(!amdReady || typeof window.state === 'undefined' || !window.state.candles || !window.state.candles.length) return;
+      const data = window.state.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
       amdSeries.setData(data);
       drawAMDOverlay();
     } catch(e) { console.warn('AMD chart sync error:', e); }
   }
 
+    // ---------- CVD (Cumulative Volume Delta) CHART ----------
+  let cvdChart, cvdSeries, cvdReady = false;
+  function initCVDChart(){
+    const container = document.getElementById('cvdChart');
+    if(!container || typeof LightweightCharts === 'undefined') return;
+    cvdChart = LightweightCharts.createChart(container, {
+      layout: { background: { color: 'transparent' }, textColor: getComputedStyle(document.documentElement).getPropertyValue('--txt-dim') },
+      grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
+      timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.06)' },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
+      autoSize: true,
+    });
+    cvdSeries = cvdChart.addAreaSeries({
+      lineColor: '#ff2d95', topColor: 'rgba(255,45,149,0.35)', bottomColor: 'rgba(255,45,149,0.02)', lineWidth: 2,
+    });
+    cvdReady = true;
+  }
+  function syncCVD(){
+    try {
+      if(!cvdReady || !window.state || !window.state.candles || !window.state.candles.length) return;
+      let running = 0;
+      const data = window.state.candles.map(c => {
+        const vol = c.volume || 1;
+        running += (c.close >= c.open ? vol : -vol);
+        return { time: c.time, value: running };
+      });
+      cvdSeries.setData(data);
+    } catch(e) { console.warn('CVD sync error:', e); }
+  }
+
+  // ---------- DELTA VOLUME PROFILE ----------
+  function syncDeltaProfile(){
+    try {
+      const wrap = document.getElementById('deltaProfile');
+      if(!wrap || !window.state || !window.state.candles || !window.state.candles.length) return;
+      const recent = window.state.candles.slice(-150);
+      const prices = recent.map(c => c.close);
+      const hi = Math.max(...prices), lo = Math.min(...prices);
+      if(hi === lo) return;
+      const buckets = 22;
+      const bucketSize = (hi - lo) / buckets;
+      const rows = Array.from({length: buckets}, (_, k) => ({ price: lo + k*bucketSize, buy: 0, sell: 0 }));
+      recent.forEach(c => {
+        let idx = Math.floor((c.close - lo) / bucketSize);
+        if(idx >= buckets) idx = buckets - 1;
+        if(idx < 0) idx = 0;
+        const vol = c.volume || 1;
+        if(c.close >= c.open) rows[idx].buy += vol; else rows[idx].sell += vol;
+      });
+      const maxAbsDelta = Math.max(...rows.map(r => Math.abs(r.buy - r.sell)), 1);
+      wrap.innerHTML = rows.map(r => {
+        const delta = r.buy - r.sell;
+        const pct = Math.round((Math.abs(delta) / maxAbsDelta) * 100);
+        const isBuy = delta >= 0;
+        const color = isBuy ? 'var(--bull)' : 'var(--bear)';
+        return `<div style="display:flex;align-items:center;gap:8px;font-size:9.5px;height:14px;">
+          <div style="width:64px;text-align:right;color:var(--txt-dim);flex-shrink:0;">${r.price.toFixed(2)}</div>
+          <div style="flex:1;height:10px;background:var(--panel2);border-radius:3px;overflow:hidden;position:relative;">
+            <div style="height:100%;width:${pct}%;background:${color};box-shadow:0 0 6px ${color};border-radius:3px;"></div>
+          </div>
+          <div style="width:56px;color:${color};font-weight:700;flex-shrink:0;">${delta>=0?'+':''}${Math.round(delta)}</div>
+        </div>`;
+      }).join('');
+    } catch(e) { console.warn('Delta profile error:', e); }
+  }
+
   function waitForStateAndInit(){
-    if(typeof state !== 'undefined' && state.candles && state.candles.length > 5){
+    if(typeof window.state !== 'undefined' && window.state.candles && window.state.candles.length > 5){
       initAMDChart();
       syncAMDData();
       updateAMDSessionBadge();
+      initCVDChart();
+      syncCVD();
+      syncDeltaProfile();
       setInterval(syncAMDData, 5000);
       setInterval(updateAMDSessionBadge, 30000);
+      setInterval(syncCVD, 5000);
+      setInterval(syncDeltaProfile, 6000);
       window.addEventListener('resize', drawAMDOverlay);
     } else {
       setTimeout(waitForStateAndInit, 1000);
