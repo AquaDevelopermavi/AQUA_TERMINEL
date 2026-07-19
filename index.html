@@ -150,6 +150,16 @@
   /* Main area */
   .main{flex:1;display:flex;flex-direction:column;overflow:visible;position:relative;}
   .chart-wrap{height:82vh; min-height:600px; position:relative;}
+  .fs-btn{position:absolute; top:10px; right:10px; z-index:50; width:32px; height:32px; border-radius:7px; background:var(--panel2); border:1px solid var(--line); color:var(--txt); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  .fs-btn:hover{color:var(--gold); border-color:var(--gold); box-shadow:0 0 8px rgba(255,45,149,0.3);}
+  .chart-wrap.is-fullscreen, .fs-target.is-fullscreen{position:fixed !important; inset:0 !important; z-index:9999 !important; width:100vw !important; height:100vh !important; min-height:100vh !important; background:var(--bg); padding:10px;}
+  .fs-toolbar{position:absolute; top:10px; left:10px; z-index:50; display:none; gap:6px; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:6px; align-items:center;}
+  .chart-wrap.is-fullscreen .fs-toolbar, .fs-target.is-fullscreen .fs-toolbar{display:flex;}
+  .fs-toolbar button{background:transparent; border:1px solid transparent; color:var(--txt-dim); width:28px; height:28px; border-radius:6px; cursor:pointer; font-size:13px;}
+  .fs-toolbar button.active{background:var(--panel); border-color:var(--gold); color:var(--gold);}
+  .fs-toolbar button:hover{color:var(--txt);}
+  .fs-toolbar input[type=color]{width:26px;height:26px;border:none;background:none;padding:0;cursor:pointer;}
+  #drawToolbar.fs-elevated{position:fixed !important; top:14px; left:14px; z-index:10000 !important;}}
   #chart{position:absolute;inset:0;}
   #overlay{position:absolute;inset:0;pointer-events:none;}
   #fvgobChartEl, #liqmapChartEl, #vpChartEl{position:absolute;inset:0;}
@@ -514,7 +524,8 @@
         <span id="replayLabel" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt-dim);min-width:140px;">--</span>
         <button class="tf-btn" id="replayExit">✕ Exit Replay</button>
       </div>
-      <div class="chart-wrap">
+      <div class="chart-wrap" id="wrap-structure">
+        <button class="fs-btn" data-fs="structure" title="Fullscreen">⛶</button>
         <div id="chart"></div>
         <canvas id="overlay"></canvas>
         <div class="legend">
@@ -525,7 +536,8 @@
     </div>
 
     <div class="gsub-view" id="gsub-volume">
-      <div class="chart-wrap">
+      <div class="chart-wrap" id="wrap-volume">
+        <button class="fs-btn" data-fs="volume" title="Fullscreen">⛶</button>
         <div id="vpChartEl"></div>
         <canvas id="vpOverlay"></canvas>
       </div>
@@ -543,7 +555,8 @@
       </div>
       <div class="page-note" id="patternTicker">Scanning for patterns…</div>
       <div class="page-note" id="strategyNote" style="display:none;"></div>
-      <div class="chart-wrap">
+      <div class="chart-wrap" id="wrap-fvgob">
+        <button class="fs-btn" data-fs="fvgob" title="Fullscreen">⛶</button>
         <div id="fvgobChartEl"></div>
         <canvas id="fvgobOverlay"></canvas>
         <div class="legend">
@@ -558,7 +571,8 @@
     </div>
 
     <div class="gsub-view" id="gsub-liqmap">
-      <div class="chart-wrap">
+      <div class="chart-wrap" id="wrap-liqmap">
+        <button class="fs-btn" data-fs="liqmap" title="Fullscreen">⛶</button>
         <canvas id="liqHeatCanvas" style="position:absolute;inset:0;"></canvas>
         <div id="liqmapChartEl" style="position:absolute;inset:0;"></div>
         <canvas id="liqAbsOverlay" style="position:absolute;inset:0;pointer-events:none;"></canvas>
@@ -725,7 +739,8 @@
 
     <!-- DEDICATED FULL-SIZE FOOTPRINT ORDER FLOW VIEW -->
     <div class="gsub-view" id="gsub-footprint">
-      <div class="chart-wrap">
+      <div class="chart-wrap" id="wrap-footprint">
+        <button class="fs-btn" data-fs="footprint" title="Fullscreen">⛶</button>
         <canvas id="footprintCanvas" style="position:absolute; inset:0;"></canvas>
       </div>
     </div>
@@ -832,7 +847,7 @@
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;">
     <div style="font-size:14px;font-weight:800;color:var(--gold);letter-spacing:0.5px;margin-bottom:2px;">📈 CVD — CUMULATIVE VOLUME DELTA</div>
     <div style="font-size:10.5px;color:var(--txt-dim);margin-bottom:10px;">Running total of (buy volume − sell volume) per candle. Rising CVD = aggressive buying; falling = aggressive selling.</div>
-    <div id="cvdChart" style="width:100%;height:180px;"></div>
+    <div class="fs-target" id="wrap-cvd" style="position:relative;height:180px;"><button class="fs-btn" data-fs="cvd" title="Fullscreen">⛶</button><div id="cvdChart" style="width:100%;height:100%;"></div></div>
   </div>
 
   <!-- Delta Volume Profile -->
@@ -855,7 +870,8 @@
       <span style="color:#c9a961;">■ NEW YORK</span>
       <span style="color:var(--gold);">■ Manipulation Sweep</span>
     </div>
-    <div style="position:relative;width:100%;height:380px;">
+    <div class="fs-target" id="wrap-amd" style="position:relative;width:100%;height:380px;">
+      <button class="fs-btn" data-fs="amd" title="Fullscreen">⛶</button>
       <div id="amdChart" style="width:100%;height:100%;"></div>
       <canvas id="amdOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
     </div>
@@ -2930,6 +2946,53 @@
     else if(key==='calendar'){ renderCalList(); }
     else if(key==='journal'){ renderJournal(); }
     else if(key==='footprint'){ drawFootprintChart(); }
+  });
+
+  // ---------- FULLSCREEN TOGGLE (per-chart) ----------
+  const fsResizers = {
+    structure: () => { setTimeout(resizeAll, 60); },
+    volume: () => { setTimeout(()=>{ const el=document.getElementById('vpChartEl'); vpChart2.resize(el.clientWidth, el.clientHeight); fitCanvasToChart(vpOverlay2, el); renderVolumeProfileTab(); }, 60); },
+    fvgob: () => { setTimeout(()=>{ const el=document.getElementById('fvgobChartEl'); fvgobChart.resize(el.clientWidth, el.clientHeight); fitCanvasToChart(fvgobOverlay, el); drawFvgObOverlay(); }, 60); },
+    liqmap: () => { setTimeout(()=>{ const el=document.getElementById('liqmapChartEl'); liqmapChart.resize(el.clientWidth, el.clientHeight); fitCanvasToChart(liqHeatCanvas, el); fitCanvasToChart(liqAbsOverlay, el); drawLiqHeatBackground(); drawLiqAbsorption(); }, 60); },
+    footprint: () => { setTimeout(drawFootprintChart, 60); },
+    amd: () => { setTimeout(()=>{ if(typeof drawAMDOverlay==='function') drawAMDOverlay(); window.dispatchEvent(new Event('resize')); }, 60); },
+    cvd: () => { setTimeout(()=>{ window.dispatchEvent(new Event('resize')); }, 60); },
+  };
+
+  document.querySelectorAll('.fs-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.fs;
+      const wrap = document.getElementById('wrap-' + key);
+      if(!wrap) return;
+      const goingFullscreen = !wrap.classList.contains('is-fullscreen');
+      wrap.classList.toggle('is-fullscreen');
+      btn.textContent = goingFullscreen ? '✕' : '⛶';
+      btn.title = goingFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
+      document.body.style.overflow = goingFullscreen ? 'hidden' : '';
+      if(key === 'structure'){
+        const dt = document.getElementById('drawToolbar');
+        if(dt) dt.classList.toggle('fs-elevated', goingFullscreen);
+      }
+      if(fsResizers[key]) fsResizers[key]();
+    });
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape'){
+      const fsWrap = document.querySelector('.is-fullscreen');
+      if(fsWrap){
+        fsWrap.classList.remove('is-fullscreen');
+        document.body.style.overflow = '';
+        const btn = document.querySelector('.fs-btn[data-fs="' + fsWrap.id.replace('wrap-','') + '"]');
+        if(btn){ btn.textContent='⛶'; btn.title='Fullscreen'; }
+        const key = fsWrap.id.replace('wrap-','');
+        if(key === 'structure'){
+          const dt = document.getElementById('drawToolbar');
+          if(dt) dt.classList.remove('fs-elevated');
+        }
+        if(fsResizers[key]) fsResizers[key]();
+      }
+    }
   });
 
   // ---------- UI WIRING ----------
