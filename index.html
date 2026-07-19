@@ -159,6 +159,18 @@
   .fs-toolbar button.active{background:var(--panel); border-color:var(--gold); color:var(--gold);}
   .fs-toolbar button:hover{color:var(--txt);}
   .fs-toolbar input[type=color]{width:26px;height:26px;border:none;background:none;padding:0;cursor:pointer;}
+  .ind-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:7px;}
+  .ind-row:hover{background:var(--panel2);}
+  .ind-row .ind-meta{display:flex;flex-direction:column;gap:1px;min-width:0;}
+  .ind-row .ind-name{font-size:11px;color:var(--txt);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ind-row .ind-sub{font-size:9px;color:var(--txt-dim);}
+  .ind-switch{position:relative;width:36px;height:20px;flex-shrink:0;cursor:pointer;}
+  .ind-switch input{opacity:0;width:0;height:0;}
+  .ind-switch .track{position:absolute;inset:0;background:var(--panel2);border:1px solid var(--line);border-radius:20px;transition:.2s;}
+  .ind-switch .knob{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--txt-dim);transition:.2s;}
+  .ind-switch input:checked + .track{background:rgba(255,45,149,0.25);border-color:var(--gold);}
+  .ind-switch input:checked + .track .knob{transform:translateX(16px);background:var(--gold);box-shadow:0 0 8px var(--gold);}
+  .ind-group-label{font-size:9px;font-weight:800;color:var(--txt-dim);letter-spacing:0.6px;margin:8px 2px 2px;text-transform:uppercase;}
   #drawToolbar.fs-elevated{position:fixed !important; top:14px; left:14px; z-index:10000 !important;}
   #chart{position:absolute;inset:0;}
   #overlay{position:absolute;inset:0;pointer-events:none;}
@@ -505,6 +517,23 @@
       <select id="strategySelect" style="background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;outline:none;">
         <option value="">STRATEGY: NONE (ALL INDICATORS ACTIVE)</option>
       </select>
+
+      <div style="position:relative;">
+        <button id="indicatorsBarBtn" style="background:var(--panel);color:var(--gold);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:bold;cursor:pointer;display:flex;align-items:center;gap:6px;">
+          📊 INDICATORS <span id="indicatorsActiveCount" style="background:var(--gold);color:#06070a;border-radius:10px;padding:0 6px;font-size:10px;">0</span>
+        </button>
+        <div id="indicatorsPanel" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:340px;max-height:420px;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.5), 0 0 20px rgba(255,45,149,0.08);z-index:50;padding:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:11px;font-weight:800;color:var(--gold);letter-spacing:0.5px;">CUSTOM INDICATORS</span>
+            <div style="display:flex;gap:6px;">
+              <button id="indicatorsAllOnBtn" style="background:transparent;border:1px solid var(--line);color:var(--txt-dim);font-size:9px;padding:3px 8px;border-radius:5px;cursor:pointer;">All On</button>
+              <button id="indicatorsAllOffBtn" style="background:transparent;border:1px solid var(--line);color:var(--txt-dim);font-size:9px;padding:3px 8px;border-radius:5px;cursor:pointer;">All Off</button>
+            </div>
+          </div>
+          <div id="indicatorsList" style="display:flex;flex-direction:column;gap:2px;"></div>
+          <div style="font-size:9px;color:var(--txt-dim);margin-top:8px;border-top:1px solid var(--line);padding-top:8px;">More indicators can be added here anytime — this panel is fully modular.</div>
+        </div>
+      </div>
     </div>
     <div class="gsub-body">
 
@@ -5117,6 +5146,157 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     const del = e.target.closest('[data-del-jr]');
     if(del){ journal = journal.filter(t=>t.id!==+del.dataset.delJr); saveJournal(); renderJournal(); }
   });
+
+  
+  // ---------- MODULAR CUSTOM INDICATORS REGISTRY ----------
+  // Add new indicators any time via AquaIndicators.register(id, {...}) - fully dynamic, no other code needs to change.
+  const AquaIndicators = (function(){
+    const registry = new Map();
+    const activeSeries = new Map(); // id -> array of series/primitives added to the chart, for clean teardown
+
+    function register(id, def){
+      registry.set(id, Object.assign({
+        name: id, author: '', group: 'General', enabled: false,
+        onEnable: null, // (ctx) => series[] | series
+        onDisable: null, // (ctx, series[]) => void
+      }, def));
+    }
+
+    // Generic helper for indicator authors: plots a line/histogram/area series onto the main chart
+    // type: 'line' | 'histogram' | 'area'
+    function addIndicatorSeries(targetChart, type, data, opts = {}){
+      let series;
+      if(type === 'histogram') series = targetChart.addHistogramSeries(Object.assign({ priceFormat:{type:'volume'} }, opts));
+      else if(type === 'area') series = targetChart.addAreaSeries(opts);
+      else series = targetChart.addLineSeries(opts);
+      if(data) series.setData(data);
+      return series;
+    }
+
+    function ctxForIndicator(){
+      return { chart, candleSeries, overlay: document.getElementById('overlay'), state, addIndicatorSeries };
+    }
+
+    function enable(id){
+      const def = registry.get(id);
+      if(!def || def.enabled) return;
+      def.enabled = true;
+      try {
+        if(typeof def.onEnable === 'function'){
+          const result = def.onEnable(ctxForIndicator());
+          const list = Array.isArray(result) ? result : (result ? [result] : []);
+          activeSeries.set(id, list);
+        } else {
+          console.info('[Indicators] "' + def.name + '" enabled (logic not yet wired — waiting for JS module).');
+        }
+      } catch(e){ console.warn('[Indicators] enable failed for', id, e); }
+      persistState();
+      renderIndicatorsList();
+    }
+
+    function disable(id){
+      const def = registry.get(id);
+      if(!def || !def.enabled) return;
+      def.enabled = false;
+      try {
+        const series = activeSeries.get(id) || [];
+        if(typeof def.onDisable === 'function'){
+          def.onDisable(ctxForIndicator(), series);
+        } else {
+          series.forEach(s => { try{ chart.removeSeries(s); }catch(e){} });
+        }
+        activeSeries.delete(id);
+      } catch(e){ console.warn('[Indicators] disable failed for', id, e); }
+      persistState();
+      renderIndicatorsList();
+    }
+
+    function toggle(id){ const def = registry.get(id); if(!def) return; def.enabled ? disable(id) : enable(id); }
+    function isEnabled(id){ const def = registry.get(id); return !!(def && def.enabled); }
+    function all(){ return Array.from(registry.entries()).map(([id, def]) => Object.assign({id}, def)); }
+
+    function persistState(){
+      const on = all().filter(d=>d.enabled).map(d=>d.id);
+      localStorage.setItem('aquaActiveIndicators', JSON.stringify(on));
+      const badge = document.getElementById('indicatorsActiveCount');
+      if(badge) badge.textContent = on.length;
+    }
+
+    function restoreState(){
+      try {
+        const saved = JSON.parse(localStorage.getItem('aquaActiveIndicators') || '[]');
+        saved.forEach(id => { if(registry.has(id)) enable(id); });
+      } catch(e){}
+      persistState();
+    }
+
+    return { register, enable, disable, toggle, isEnabled, all, restoreState, addIndicatorSeries };
+  })();
+  window.AquaIndicators = AquaIndicators;
+
+  // Register the 13 indicators (UI-ready now; drop real onEnable/onDisable logic in per indicator as JS is provided)
+  [
+    { id:'buyside_sellside_liq', name:'Buyside & Sellside Liquidity', author:'LuxAlgo', group:'Liquidity' },
+    { id:'dynamic_liq_heatmap', name:'Dynamic Liquidity HeatMap Profile', author:'BigBeluga', group:'Liquidity' },
+    { id:'guardeer_smc', name:'Precision Entry System', author:'GUARDEER', group:'Structure' },
+    { id:'trend_channels_liq_breaks', name:'Trend Channels + Liquidity Breaks', author:'ChartPrime', group:'Structure' },
+    { id:'fib_projection_ai', name:'Fib Projection (Volume & Delta)', author:'Zeiierman', group:'Fibonacci' },
+    { id:'volume_supertrend_ai', name:'Volume SuperTrend AI', author:'Zeiierman', group:'Trend' },
+    { id:'market_sessions', name:'FX Market Sessions', author:'boitoki', group:'Sessions' },
+    { id:'liq_sentiment_auto', name:'Liquidity Sentiment Profile (Auto-Anchored)', author:'LuxAlgo', group:'Liquidity' },
+    { id:'liq_sweeps_ifvg', name:'Liquidity Sweeps & Inverse FVGs', author:'LuxAlgo', group:'Liquidity' },
+    { id:'smc_pampa', name:'Smart Money Concepts', author:'Pampa', group:'Structure' },
+    { id:'volume_delta_pampa', name:'Volume Delta Candles', author:'Pampa', group:'Volume' },
+    { id:'point_of_control', name:'Point of Control (POC)', author:'JohnBaron', group:'Volume' },
+    { id:'liq_sentiment_profile', name:'Liquidity Sentiment Profile', author:'LuxAlgo', group:'Liquidity' },
+  ].forEach(d => AquaIndicators.register(d.id, d));
+
+  function renderIndicatorsList(){
+    const listEl = document.getElementById('indicatorsList');
+    if(!listEl) return;
+    const items = AquaIndicators.all();
+    const groups = {};
+    items.forEach(it => { (groups[it.group] = groups[it.group] || []).push(it); });
+    let html = '';
+    Object.keys(groups).forEach(g => {
+      html += `<div class="ind-group-label">${g}</div>`;
+      groups[g].forEach(it => {
+        html += `<div class="ind-row">
+          <div class="ind-meta">
+            <div class="ind-name">${it.name}</div>
+            <div class="ind-sub">${it.author || ''}</div>
+          </div>
+          <label class="ind-switch">
+            <input type="checkbox" data-ind-id="${it.id}" ${it.enabled ? 'checked' : ''}>
+            <span class="track"><span class="knob"></span></span>
+          </label>
+        </div>`;
+      });
+    });
+    listEl.innerHTML = html;
+  }
+
+  document.getElementById('indicatorsBarBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const panel = document.getElementById('indicatorsPanel');
+    if(panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  });
+  document.addEventListener('click', (e) => {
+    const panel = document.getElementById('indicatorsPanel');
+    const btn = document.getElementById('indicatorsBarBtn');
+    if(panel && panel.style.display !== 'none' && !panel.contains(e.target) && e.target !== btn){
+      panel.style.display = 'none';
+    }
+  });
+  document.getElementById('indicatorsList')?.addEventListener('change', (e) => {
+    const cb = e.target.closest('[data-ind-id]');
+    if(cb) AquaIndicators.toggle(cb.dataset.indId);
+  });
+  document.getElementById('indicatorsAllOnBtn')?.addEventListener('click', () => AquaIndicators.all().forEach(d => AquaIndicators.enable(d.id)));
+  document.getElementById('indicatorsAllOffBtn')?.addEventListener('click', () => AquaIndicators.all().forEach(d => AquaIndicators.disable(d.id)));
+
+  renderIndicatorsList();
+  AquaIndicators.restoreState();
 
   // ---------- INIT ----------
   loadCalEvents();
