@@ -785,6 +785,50 @@
   </div>
 
 </div>
+<!-- ============ BUYER/SELLER PRESSURE + AMD CHART (scroll down) ============ -->
+<div style="max-width:1300px;margin:0 auto;width:100%;padding:24px 20px;display:flex;flex-direction:column;gap:24px;">
+
+  <!-- Buyer vs Seller Pressure Panel -->
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;">
+    <div style="font-size:14px;font-weight:800;color:var(--gold);letter-spacing:0.5px;margin-bottom:2px;">📊 LIVE BUYER vs SELLER PRESSURE</div>
+    <div style="font-size:10.5px;color:var(--txt-dim);margin-bottom:14px;">Derived from the last 20 candles' direction, weighted by volume. Updates every few seconds.</div>
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:6px;">
+          <span style="color:var(--bull);">🟢 BUYERS <span id="buyPct">--</span>%</span>
+          <span style="color:var(--bear);">SELLERS <span id="sellPct">--</span>% 🔴</span>
+        </div>
+        <div style="height:10px;border-radius:6px;overflow:hidden;background:var(--panel2);border:1px solid var(--line);display:flex;">
+          <div id="buyBar" style="height:100%;background:var(--bull);width:50%;transition:width 0.6s ease;"></div>
+          <div id="sellBar" style="height:100%;background:var(--bear);width:50%;transition:width 0.6s ease;"></div>
+        </div>
+        <div id="pressureVerdict" style="margin-top:8px;font-size:11.5px;font-weight:700;color:var(--gold);">Analyzing order flow…</div>
+      </div>
+      <div id="pressureDots" style="display:flex;flex-wrap:wrap;gap:5px;max-width:260px;"></div>
+    </div>
+  </div>
+
+  <!-- AMD Chart -->
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+      <div style="font-size:14px;font-weight:800;color:var(--gold);letter-spacing:0.5px;">🔄 ACCUMULATION • MANIPULATION • DISTRIBUTION</div>
+      <div id="amdSessionBadge" style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--txt-dim);">Loading session…</div>
+    </div>
+    <div style="font-size:10.5px;color:var(--txt-dim);margin-bottom:10px;">Asian range = Accumulation. A sweep of that range during London/NY = Manipulation. The trending move that follows = Distribution.</div>
+    <div style="display:flex;gap:14px;font-size:10px;margin-bottom:10px;flex-wrap:wrap;">
+      <span style="color:#5b7fd1;">■ ASIA (Accumulation)</span>
+      <span style="color:#9a6fd6;">■ LONDON</span>
+      <span style="color:#c9a961;">■ NEW YORK</span>
+      <span style="color:var(--gold);">■ Manipulation Sweep</span>
+    </div>
+    <div style="position:relative;width:100%;height:380px;">
+      <div id="amdChart" style="width:100%;height:100%;"></div>
+      <canvas id="amdOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+    </div>
+  </div>
+
+</div>
+
 
 <div class="modal-backdrop" id="riskModalBackdrop">
   <div class="modal">
@@ -5007,5 +5051,210 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
   });
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d25a61389bced4',t:'MTc4NDM4Njc5NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1d25a61389bced4',t:'MTc4NDM4Njc5NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+<script>
+(function(){
+  // ---------- BUYER/SELLER PRESSURE PANEL ----------
+  function renderPressureDots(buyPct){
+    const wrap = document.getElementById('pressureDots');
+    if(!wrap) return;
+    wrap.innerHTML = '';
+    const totalDots = 40;
+    const greenDots = Math.round(totalDots * (buyPct/100));
+    for(let i=0;i<totalDots;i++){
+      const d = document.createElement('div');
+      const isBuy = i < greenDots;
+      d.style.cssText = 'width:9px;height:9px;border-radius:50%;background:' + (isBuy ? 'var(--bull)' : 'var(--bear)') +
+        ';box-shadow:0 0 6px ' + (isBuy ? 'var(--bull)' : 'var(--bear)') +
+        ';opacity:0;animation:amdDotFade 0.4s ease forwards;animation-delay:' + (i*15) + 'ms;';
+      wrap.appendChild(d);
+    }
+  }
+
+  function updateBuyerSellerPressure(){
+    try {
+      if(typeof state === 'undefined' || !state.candles || state.candles.length < 5) return;
+      const recent = state.candles.slice(-20);
+      let buyVol = 0, sellVol = 0;
+      recent.forEach(c => {
+        const vol = c.volume || 1;
+        if(c.close >= c.open) buyVol += vol; else sellVol += vol;
+      });
+      const total = buyVol + sellVol || 1;
+      const buyPct = Math.round((buyVol/total)*100);
+      const sellPct = 100 - buyPct;
+      const buyPctEl = document.getElementById('buyPct');
+      const sellPctEl = document.getElementById('sellPct');
+      const buyBar = document.getElementById('buyBar');
+      const sellBar = document.getElementById('sellBar');
+      const verdict = document.getElementById('pressureVerdict');
+      if(buyPctEl) buyPctEl.textContent = buyPct;
+      if(sellPctEl) sellPctEl.textContent = sellPct;
+      if(buyBar) buyBar.style.width = buyPct + '%';
+      if(sellBar) sellBar.style.width = sellPct + '%';
+      if(verdict){
+        if(buyPct >= 60) verdict.innerHTML = '🟢 Buyers firmly in control — bullish pressure dominant.';
+        else if(sellPct >= 60) verdict.innerHTML = '🔴 Sellers firmly in control — bearish pressure dominant.';
+        else verdict.innerHTML = '⚪ Balanced order flow — no clear directional control yet.';
+      }
+      renderPressureDots(buyPct);
+    } catch(e) { console.warn('Pressure panel error:', e); }
+  }
+  setInterval(updateBuyerSellerPressure, 4000);
+  setTimeout(updateBuyerSellerPressure, 1500);
+
+  const styleTag = document.createElement('style');
+  styleTag.textContent = '@keyframes amdDotFade { from{opacity:0; transform:scale(0.5);} to{opacity:1; transform:scale(1);} }';
+  document.head.appendChild(styleTag);
+
+  // ---------- AMD CHART ----------
+  let amdChart, amdSeries, amdReady = false;
+  function initAMDChart(){
+    const container = document.getElementById('amdChart');
+    if(!container || typeof LightweightCharts === 'undefined') return;
+    amdChart = LightweightCharts.createChart(container, {
+      layout: { background: { color: 'transparent' }, textColor: getComputedStyle(document.documentElement).getPropertyValue('--txt-dim') },
+      grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
+      timeScale: { timeVisible: true, secondsVisible: false, borderColor: 'rgba(255,255,255,0.06)' },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
+      autoSize: true,
+    });
+    amdSeries = amdChart.addCandlestickSeries({
+      upColor: 'rgba(255,245,251,1)', downColor: '#ff2d95',
+      borderUpColor: 'rgba(255,245,251,1)', borderDownColor: '#ff2d95',
+      wickUpColor: 'rgba(255,245,251,0.7)', wickDownColor: '#ff2d95',
+    });
+    amdReady = true;
+    drawAMDOverlay();
+    amdChart.timeScale().subscribeVisibleTimeRangeChange(drawAMDOverlay);
+  }
+
+  function sessionBoundsForDayAMD(dayStartUTC){
+    return [
+      { name:'ASIA', s: dayStartUTC+0*3600, e: dayStartUTC+8*3600, color:'#5b7fd1' },
+      { name:'LONDON', s: dayStartUTC+8*3600, e: dayStartUTC+16*3600, color:'#9a6fd6' },
+      { name:'NEW YORK', s: dayStartUTC+13*3600, e: dayStartUTC+21*3600, color:'#c9a961' },
+    ];
+  }
+
+  function updateAMDSessionBadge(){
+    const badge = document.getElementById('amdSessionBadge');
+    if(!badge) return;
+    const h = new Date().getUTCHours();
+    let label = 'QUIET (POST NY)';
+    if(h>=0 && h<8) label = '🌏 ASIAN SESSION — Accumulation phase';
+    else if(h>=8 && h<13) label = '🇬🇧 LONDON SESSION — Manipulation likely';
+    else if(h>=13 && h<16) label = '🔥 LONDON/NY OVERLAP — Manipulation/Distribution';
+    else if(h>=16 && h<21) label = '🗽 NEW YORK SESSION — Distribution phase';
+    badge.textContent = label;
+  }
+
+  function drawAMDOverlay(){
+    if(!amdReady) return;
+    const canvas = document.getElementById('amdOverlay');
+    const container = document.getElementById('amdChart');
+    if(!canvas || !container) return;
+    const w = container.clientWidth, h = container.clientHeight;
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,w,h);
+    const ts = amdChart.timeScale();
+    const range = ts.getVisibleRange();
+    if(!range) return;
+
+    const startDay = Math.floor(range.from/86400)*86400 - 86400;
+    const endDay = Math.ceil(range.to/86400)*86400 + 86400;
+    let asianRange = null;
+
+    for(let d=startDay; d<=endDay; d+=86400){
+      sessionBoundsForDayAMD(d).forEach(sess => {
+        const x1 = ts.timeToCoordinate(Math.max(sess.s, range.from));
+        const x2 = ts.timeToCoordinate(Math.min(sess.e, range.to));
+        if(x1===null || x2===null || x2<=x1) return;
+        const rgb = sess.color === '#5b7fd1' ? '91,127,209' : sess.color === '#9a6fd6' ? '154,111,214' : '201,169,97';
+        ctx.fillStyle = 'rgba(' + rgb + ',0.07)';
+        ctx.fillRect(x1, 0, x2-x1, h);
+        ctx.strokeStyle = 'rgba(' + rgb + ',0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x1,0); ctx.lineTo(x1,h); ctx.stroke();
+
+        ctx.font = '600 10px Space Grotesk, sans-serif';
+        ctx.fillStyle = sess.color;
+        const label = sess.name === 'ASIA' ? 'ACCUMULATION' : sess.name === 'LONDON' ? 'MANIPULATION' : 'DISTRIBUTION';
+        ctx.fillText(sess.name + ' — ' + label, x1+6, 16);
+
+        if(sess.name === 'ASIA' && typeof state !== 'undefined' && state.candles){
+          const dayCandles = state.candles.filter(c => c.time >= sess.s && c.time < sess.e);
+          if(dayCandles.length){
+            const hi = Math.max(...dayCandles.map(c=>c.high));
+            const lo = Math.min(...dayCandles.map(c=>c.low));
+            asianRange = {hi, lo, s: sess.s, e: sess.e};
+          }
+        }
+      });
+
+      if(asianRange){
+        const y1 = amdSeries.priceToCoordinate(asianRange.hi);
+        const y2 = amdSeries.priceToCoordinate(asianRange.lo);
+        const x1 = ts.timeToCoordinate(Math.max(asianRange.s, range.from));
+        const x2 = ts.timeToCoordinate(Math.min(d+21*3600, range.to));
+        if(y1!==null && y2!==null && x1!==null && x2!==null && x2>x1){
+          ctx.fillStyle = 'rgba(91,127,209,0.10)';
+          ctx.fillRect(x1, Math.min(y1,y2), x2-x1, Math.abs(y2-y1));
+          ctx.strokeStyle = 'rgba(91,127,209,0.5)';
+          ctx.setLineDash([4,3]);
+          ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y1); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x1,y2); ctx.lineTo(x2,y2); ctx.stroke();
+          ctx.setLineDash([]);
+
+          if(typeof state !== 'undefined' && state.candles){
+            const afterAsia = state.candles.filter(c => c.time >= asianRange.e && c.time <= (asianRange.e + 8*3600));
+            const sweepUp = afterAsia.find(c => c.high > asianRange.hi);
+            const sweepDown = afterAsia.find(c => c.low < asianRange.lo);
+            const sweep = sweepUp || sweepDown;
+            if(sweep){
+              const sx = ts.timeToCoordinate(sweep.time);
+              const sy = amdSeries.priceToCoordinate(sweepUp ? sweep.high : sweep.low);
+              if(sx!==null && sy!==null){
+                ctx.beginPath();
+                ctx.arc(sx, sy, 6, 0, Math.PI*2);
+                ctx.strokeStyle = '#ff2d95';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.font = '700 10px Space Grotesk, sans-serif';
+                ctx.fillStyle = '#ff2d95';
+                ctx.fillText('⚡ SWEEP', sx+8, sy-8);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  function syncAMDData(){
+    try {
+      if(!amdReady || typeof state === 'undefined' || !state.candles || !state.candles.length) return;
+      const data = state.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
+      amdSeries.setData(data);
+      drawAMDOverlay();
+    } catch(e) { console.warn('AMD chart sync error:', e); }
+  }
+
+  function waitForStateAndInit(){
+    if(typeof state !== 'undefined' && state.candles && state.candles.length > 5){
+      initAMDChart();
+      syncAMDData();
+      updateAMDSessionBadge();
+      setInterval(syncAMDData, 5000);
+      setInterval(updateAMDSessionBadge, 30000);
+      window.addEventListener('resize', drawAMDOverlay);
+    } else {
+      setTimeout(waitForStateAndInit, 1000);
+    }
+  }
+  setTimeout(waitForStateAndInit, 2000);
+})();
+</script>
+</body>
 </html>
