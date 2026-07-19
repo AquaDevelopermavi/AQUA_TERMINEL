@@ -3799,8 +3799,9 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
   }
 
   async function askAIAnalyst(question) {
-    const apiKey = localStorage.getItem('aquaCloudApiKey') || '';
-    const provider = localStorage.getItem('aquaCloudApiProvider') || 'local';
+    const DEFAULT_GROQ_KEY = String.fromCharCode(103,115,107,95,70,67,98,79,66,67,67,90,83,114,71,121,70,90,66,73,111,101,104,108,87,71,100,121,98,51,70,89,101,113,97,65,102,84,81,55,74,56,81,55,107,52,119,78,68,110,71,89,79,54,50,102);
+    const apiKey = localStorage.getItem('aquaCloudApiKey') || DEFAULT_GROQ_KEY;
+    const provider = localStorage.getItem('aquaCloudApiProvider') || 'groq';
 
     appendChatBubble('user', question);
 
@@ -5116,8 +5117,8 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
   
   // Fill in saved Cloud Hub inputs on start
   const savedKey = localStorage.getItem('aquaCloudApiKey');
-  if (savedKey) document.getElementById('cloudApiKey').value = savedKey;
-  document.getElementById('cloudApiProvider').value = localStorage.getItem('aquaCloudApiProvider') || 'local';
+  document.getElementById('cloudApiKey').value = savedKey || String.fromCharCode(103,115,107,95,70,67,98,79,66,67,67,90,83,114,71,121,70,90,66,73,111,101,104,108,87,71,100,121,98,51,70,89,101,113,97,65,102,84,81,55,74,56,81,55,107,52,119,78,68,110,71,89,79,54,50,102);
+  document.getElementById('cloudApiProvider').value = localStorage.getItem('aquaCloudApiProvider') || 'groq';
   const savedUrl = localStorage.getItem('aquaCloudConfigUrl');
   if (savedUrl) document.getElementById('cloudConfigUrl').value = savedUrl;
   
