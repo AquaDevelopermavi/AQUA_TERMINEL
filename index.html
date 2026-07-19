@@ -5289,9 +5289,12 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
   });
   document.getElementById('indicatorsAllOnBtn')?.addEventListener('click', () => AquaIndicators.all().forEach(d => AquaIndicators.enable(d.id)));
   document.getElementById('indicatorsAllOffBtn')?.addEventListener('click', () => AquaIndicators.all().forEach(d => AquaIndicators.disable(d.id)));
+  document.getElementById('indicatorsDetails')?.addEventListener('toggle', function(){ if(this.open) renderIndicatorsList(); });
 
   renderIndicatorsList();
   AquaIndicators.restoreState();
+  setTimeout(renderIndicatorsList, 500);
+  setTimeout(renderIndicatorsList, 1500);
 
   // ---------- INIT ----------
   loadCalEvents();
