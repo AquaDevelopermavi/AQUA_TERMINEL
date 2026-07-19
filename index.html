@@ -530,7 +530,85 @@
               <button id="indicatorsAllOffBtn" type="button" style="background:transparent;border:1px solid var(--line);color:var(--txt-dim);font-size:9px;padding:3px 8px;border-radius:5px;cursor:pointer;">All Off</button>
             </div>
           </div>
-          <div id="indicatorsList" style="display:flex;flex-direction:column;gap:2px;"></div>
+          <div id="indicatorsList" style="display:flex;flex-direction:column;gap:2px;"><div class="ind-group-label">Liquidity</div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Buyside & Sellside Liquidity</div><div class="ind-sub">LuxAlgo</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="buyside_sellside_liq" onchange="window.AquaIndicators && window.AquaIndicators.toggle('buyside_sellside_liq')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Dynamic Liquidity HeatMap Profile</div><div class="ind-sub">BigBeluga</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="dynamic_liq_heatmap" onchange="window.AquaIndicators && window.AquaIndicators.toggle('dynamic_liq_heatmap')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-group-label">Structure</div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Precision Entry System</div><div class="ind-sub">GUARDEER</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="guardeer_smc" onchange="window.AquaIndicators && window.AquaIndicators.toggle('guardeer_smc')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Trend Channels + Liquidity Breaks</div><div class="ind-sub">ChartPrime</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="trend_channels_liq_breaks" onchange="window.AquaIndicators && window.AquaIndicators.toggle('trend_channels_liq_breaks')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-group-label">Fibonacci</div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Fib Projection (Volume & Delta)</div><div class="ind-sub">Zeiierman</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="fib_projection_ai" onchange="window.AquaIndicators && window.AquaIndicators.toggle('fib_projection_ai')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-group-label">Trend</div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Volume SuperTrend AI</div><div class="ind-sub">Zeiierman</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="volume_supertrend_ai" onchange="window.AquaIndicators && window.AquaIndicators.toggle('volume_supertrend_ai')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-group-label">Sessions</div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">FX Market Sessions</div><div class="ind-sub">boitoki</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="market_sessions" onchange="window.AquaIndicators && window.AquaIndicators.toggle('market_sessions')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-group-label">Liquidity</div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Liquidity Sentiment Profile (Auto-Anchored)</div><div class="ind-sub">LuxAlgo</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="liq_sentiment_auto" onchange="window.AquaIndicators && window.AquaIndicators.toggle('liq_sentiment_auto')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Liquidity Sweeps & Inverse FVGs</div><div class="ind-sub">LuxAlgo</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="liq_sweeps_ifvg" onchange="window.AquaIndicators && window.AquaIndicators.toggle('liq_sweeps_ifvg')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-group-label">Structure</div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Smart Money Concepts</div><div class="ind-sub">Pampa</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="smc_pampa" onchange="window.AquaIndicators && window.AquaIndicators.toggle('smc_pampa')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-group-label">Volume</div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Volume Delta Candles</div><div class="ind-sub">Pampa</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="volume_delta_pampa" onchange="window.AquaIndicators && window.AquaIndicators.toggle('volume_delta_pampa')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Point of Control (POC)</div><div class="ind-sub">JohnBaron</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="point_of_control" onchange="window.AquaIndicators && window.AquaIndicators.toggle('point_of_control')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div><div class="ind-group-label">Liquidity</div><div class="ind-row">
+            <div class="ind-meta"><div class="ind-name">Liquidity Sentiment Profile</div><div class="ind-sub">LuxAlgo</div></div>
+            <label class="ind-switch">
+              <input type="checkbox" data-ind-id="liq_sentiment_profile" onchange="window.AquaIndicators && window.AquaIndicators.toggle('liq_sentiment_profile')">
+              <span class="track"><span class="knob"></span></span>
+            </label>
+          </div></div>
           <div style="font-size:9px;color:var(--txt-dim);margin-top:8px;border-top:1px solid var(--line);padding-top:8px;">More indicators can be added here anytime — this panel is fully modular.</div>
         </div>
       </details>
