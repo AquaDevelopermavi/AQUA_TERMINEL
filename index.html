@@ -5227,6 +5227,234 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
   });
 
   
+  
+// ==================== POINT OF CONTROL (POC) [JohnBaron] ====================
+const POC_CONFIG_SCHEMA = {
+    resetTrigger: { title: "Reset Trigger", use_day: { type: "boolean", label: "Daily Reset", default: false }, use_week: { type: "boolean", label: "Weekly Reset", default: false }, bars_: { type: "number", label: "Candles Count Trigger", min: 10, max: 5000, default: 800 } },
+    levels: { title: "Levels Matrix Configuration", incr_in: { type: "number", label: "Price Increment (0 = Auto)", min: 0, step: 0.0001, default: 0 }, see_suggestion: { type: "boolean", label: "Show Auto Increment Label", default: false } },
+    display: { title: "Display Management Engine", show_hist: { type: "boolean", label: "Show Historic POCs", default: false }, show_grands: { type: "boolean", label: "Show Grand POC Line", default: false }, show_rank: { type: "boolean", label: "Show Next 3 Chart POCs", default: false }, show_mnmx: { type: "boolean", label: "Show Upper/Lower Bounds", default: false } },
+    styles: { title: "Style & Colors Mapping", pocColor: { type: "color", label: "Active POC Line Color", default: "#ffd54f" }, grandColor: { type: "color", label: "Grand POC Color", default: "#ff9800" }, rankColor: { type: "color", label: "Ranked POCs Color", default: "#e040fb" }, boundsColor: { type: "color", label: "Boundary Bands Color", default: "#2196f3" }, histColor: { type: "color", label: "Historical POC Color", default: "#00e5ff" } }
+};
+
+class PointOfControl {
+    constructor(chart, userSettings = {}) {
+        this.chart = chart;
+        this.applySettings(userSettings);
+        this.pocSeries = null; this.grandPocSeries = null; this.rank2Series = null; this.rank3Series = null; this.rank4Series = null;
+        this.upperBoundSeries = null; this.lowerBoundSeries = null; this.histAboveSeries = null; this.histBelowSeries = null;
+        this.historicalPocs = []; this.historicalVolumes = [];
+        this.initSeries();
+    }
+    applySettings(custom) {
+        this.settings = {
+            useDay: custom.use_day !== undefined ? custom.use_day : POC_CONFIG_SCHEMA.resetTrigger.use_day.default,
+            useWeek: custom.use_week !== undefined ? custom.use_week : POC_CONFIG_SCHEMA.resetTrigger.use_week.default,
+            bars: custom.bars_ || POC_CONFIG_SCHEMA.resetTrigger.bars_.default,
+            incrIn: custom.incr_in !== undefined ? custom.incr_in : POC_CONFIG_SCHEMA.levels.incr_in.default,
+            seeSuggestion: custom.see_suggestion !== undefined ? custom.see_suggestion : POC_CONFIG_SCHEMA.levels.see_suggestion.default,
+            showHist: custom.show_hist !== undefined ? custom.show_hist : POC_CONFIG_SCHEMA.display.show_hist.default,
+            showGrands: custom.show_grands !== undefined ? custom.show_grands : POC_CONFIG_SCHEMA.display.show_grands.default,
+            showRank: custom.show_rank !== undefined ? custom.show_rank : POC_CONFIG_SCHEMA.display.show_rank.default,
+            showMnmx: custom.show_mnmx !== undefined ? custom.show_mnmx : POC_CONFIG_SCHEMA.display.show_mnmx.default,
+            pocCol: custom.pocColor || POC_CONFIG_SCHEMA.styles.pocColor.default,
+            grandCol: custom.grandColor || POC_CONFIG_SCHEMA.styles.grandColor.default,
+            rankCol: custom.rankColor || POC_CONFIG_SCHEMA.styles.rankColor.default,
+            boundsCol: custom.boundsColor || POC_CONFIG_SCHEMA.styles.boundsColor.default,
+            histCol: custom.histColor || POC_CONFIG_SCHEMA.styles.histColor.default
+        };
+    }
+    initSeries() {
+        this.pocSeries = this.chart.addLineSeries({ color: this.settings.pocCol, lineWidth: 2, title: "POC" });
+        if (this.settings.showGrands) this.grandPocSeries = this.chart.addLineSeries({ color: this.settings.grandCol, lineWidth: 2, title: "Grand POC" });
+        if (this.settings.showRank) {
+            this.rank2Series = this.chart.addLineSeries({ color: this.settings.rankCol, lineWidth: 1, lineStyle: 3, title: "Grand POC 2" });
+            this.rank3Series = this.chart.addLineSeries({ color: this.settings.rankCol, lineWidth: 1, lineStyle: 3, title: "Grand POC 3" });
+            this.rank4Series = this.chart.addLineSeries({ color: this.settings.rankCol, lineWidth: 1, lineStyle: 3, title: "Grand POC 4" });
+        }
+        if (this.settings.showMnmx) {
+            this.upperBoundSeries = this.chart.addLineSeries({ color: this.settings.boundsCol, lineWidth: 1, title: "Upper Bound" });
+            this.lowerBoundSeries = this.chart.addLineSeries({ color: this.settings.boundsCol, lineWidth: 1, title: "Lower Bound" });
+        }
+        if (this.settings.showHist) {
+            this.histAboveSeries = this.chart.addLineSeries({ color: this.settings.histCol, lineWidth: 1, lineStyle: 2, title: "Hist POC Above" });
+            this.histBelowSeries = this.chart.addLineSeries({ color: this.settings.histCol, lineWidth: 1, lineStyle: 2, title: "Hist POC Below" });
+        }
+    }
+    update(data, updatedSettings = null) {
+        if (updatedSettings) { this.applySettings(updatedSettings); this.clear(); this.initSeries(); }
+        if (!data || data.length === 0) return;
+        if (data[0].volume === undefined) { console.error("POC: volume data missing."); return; }
+        let barCount = 0, ub = data[0].high, lb = data[0].low, maxV = 0.0, activePoc = data[0].close;
+        let vProfileBins = [], pProfileBins = [];
+        this.historicalPocs = []; this.historicalVolumes = [];
+        const outPoc = [], outGrand = [], outR2 = [], outR3 = [], outR4 = [], outUb = [], outLb = [], outHAbove = [], outHBelow = [];
+        let cumulativeRangeSum = 0; const computedAutoIncrArray = [];
+        for (let idx = 0; idx < data.length; idx++) {
+            cumulativeRangeSum += (data[idx].high - data[idx].low);
+            let avgRange = cumulativeRangeSum / (idx + 1);
+            let wn = avgRange / 0.00001;
+            let pow = Math.pow(10, Math.floor(Math.log10(wn || 1)));
+            let autoIncrComputedValue = 2 * Math.ceil(wn / (pow || 1)) * 0.00001 * pow;
+            computedAutoIncrArray.push(autoIncrComputedValue === 0 ? 0.01 : autoIncrComputedValue);
+        }
+        for (let i = 0; i < data.length; i++) {
+            const bar = data[i];
+            const currentIncr = this.settings.incrIn === 0 ? computedAutoIncrArray[i] : this.settings.incrIn;
+            let isResetTriggered = false;
+            if (i > 0) {
+                if (this.settings.useDay) isResetTriggered = this.isNewSessionTimeline(data[i - 1].time, bar.time, "day");
+                else if (this.settings.useWeek) isResetTriggered = this.isNewSessionTimeline(data[i - 1].time, bar.time, "week");
+                else isResetTriggered = barCount >= this.settings.bars;
+            }
+            if (isResetTriggered || i === 0) {
+                let targetLocIdx = this.historicalPocs.indexOf(activePoc);
+                if (targetLocIdx === -1) { this.historicalPocs.push(activePoc); this.historicalVolumes.push(maxV); }
+                else { this.historicalVolumes[targetLocIdx] += maxV; }
+                barCount = 0;
+                ub = this.roundToLevelValue(bar.high, currentIncr);
+                lb = Math.min(ub - currentIncr, this.roundToLevelValue(bar.low, currentIncr));
+                vProfileBins = [bar.volume / 2, bar.volume / 2];
+                pProfileBins = [ub, lb];
+            }
+            barCount++;
+            let breakUp = Math.max(0.0, bar.high - ub);
+            let breakDn = Math.max(0.0, lb - bar.low);
+            let maxIncrCount = Math.floor(breakUp / currentIncr) + (breakUp % currentIncr > 0 ? 1 : 0);
+            let minDecrCount = Math.floor(breakDn / currentIncr) + (breakDn % currentIncr > 0 ? 1 : 0);
+            if (maxIncrCount > 0) for (let k = 1; k <= maxIncrCount; k++) { ub += currentIncr; vProfileBins.unshift(bar.volume / maxIncrCount); pProfileBins.unshift(ub); }
+            if (minDecrCount > 0) for (let k = 1; k <= minDecrCount; k++) { lb -= currentIncr; vProfileBins.push(bar.volume / minDecrCount); pProfileBins.push(lb); }
+            if (maxIncrCount === 0 && minDecrCount === 0) {
+                for (let idx = 0; idx < pProfileBins.length; idx++) {
+                    if (bar.high > pProfileBins[idx] && idx > 0) { vProfileBins[idx - 1] += bar.volume; break; }
+                }
+            }
+            maxV = vProfileBins.length > 0 ? Math.max(...vProfileBins) : 0;
+            let maxIdx = vProfileBins.indexOf(maxV);
+            activePoc = maxIdx !== -1 ? pProfileBins[maxIdx] : activePoc;
+            outPoc.push({ time: bar.time, value: activePoc });
+            if (this.settings.showMnmx) { outUb.push({ time: bar.time, value: ub }); outLb.push({ time: bar.time, value: lb }); }
+            if (this.historicalPocs.length > 0) {
+                let combinedProfileList = this.historicalPocs.map((price, index) => ({ price: price, vol: this.historicalVolumes[index] }));
+                combinedProfileList.sort((a, b) => b.vol - a.vol);
+                if (this.settings.showGrands) outGrand.push({ time: bar.time, value: combinedProfileList[0].price });
+                if (this.settings.showRank && combinedProfileList.length >= 4) {
+                    outR2.push({ time: bar.time, value: combinedProfileList[1].price });
+                    outR3.push({ time: bar.time, value: combinedProfileList[2].price });
+                    outR4.push({ time: bar.time, value: combinedProfileList[3].price });
+                }
+                if (this.settings.showHist) {
+                    let histAboveVal = activePoc, histBelowVal = activePoc;
+                    let sortedByPriceDesc = [...combinedProfileList].sort((a, b) => b.price - a.price);
+                    for (let n = 0; n < sortedByPriceDesc.length; n++) {
+                        let item = sortedByPriceDesc[n];
+                        histAboveVal = item.price;
+                        if (bar.high > item.price) { histBelowVal = item.price; if (n >= 1) histAboveVal = sortedByPriceDesc[n - 1].price; break; }
+                    }
+                    outHAbove.push({ time: bar.time, value: histAboveVal });
+                    outHBelow.push({ time: bar.time, value: histBelowVal });
+                }
+            }
+        }
+        this.pocSeries.setData(outPoc);
+        if (this.settings.showMnmx) { this.upperBoundSeries.setData(outUb); this.lowerBoundSeries.setData(outLb); }
+        if (this.settings.showGrands && outGrand.length > 0) this.grandPocSeries.setData(outGrand);
+        if (this.settings.showRank && outR2.length > 0) { this.rank2Series.setData(outR2); this.rank3Series.setData(outR3); this.rank4Series.setData(outR4); }
+        if (this.settings.showHist && outHAbove.length > 0) { this.histAboveSeries.setData(outHAbove); this.histBelowSeries.setData(outHBelow); }
+    }
+    roundToLevelValue(val, targetIncr) { return Math.round(val / targetIncr) * targetIncr; }
+    isNewSessionTimeline(prevTime, currTime, frameType) {
+        let pDate = typeof prevTime === 'number' ? new Date(prevTime * 1000) : new Date(prevTime);
+        let cDate = typeof currTime === 'number' ? new Date(currTime * 1000) : new Date(currTime);
+        if (isNaN(pDate.getTime()) || isNaN(cDate.getTime())) return false;
+        if (frameType === "day") return pDate.getUTCDate() !== cDate.getUTCDate() || pDate.getUTCMonth() !== cDate.getUTCMonth() || pDate.getUTCFullYear() !== cDate.getUTCFullYear();
+        if (frameType === "week") { let oneDayMs = 24 * 60 * 60 * 1000; return Math.floor(pDate.getTime() / (oneDayMs * 7)) !== Math.floor(cDate.getTime() / (oneDayMs * 7)); }
+        return false;
+    }
+    clear() {
+        [this.pocSeries, this.grandPocSeries, this.rank2Series, this.rank3Series, this.rank4Series, this.upperBoundSeries, this.lowerBoundSeries, this.histAboveSeries, this.histBelowSeries].forEach(s => { if (s) { try { this.chart.removeSeries(s); } catch(e){} } });
+        this.pocSeries = this.grandPocSeries = this.rank2Series = this.rank3Series = this.rank4Series = this.upperBoundSeries = this.lowerBoundSeries = this.histAboveSeries = this.histBelowSeries = null;
+    }
+}
+
+// ==================== FX MARKET SESSIONS [boitoki] ====================
+const SESSIONS_CONFIG_SCHEMA = {
+    general: { title: "General Settings", timezone: { type: "select", label: "Timezone", options: ["GMT-5","GMT-4","GMT+0","GMT+1","GMT+530","GMT+8","GMT+9"], default: "GMT+0" }, history_period: { type: "number", label: "History Days/Sessions", min: 1, max: 100, default: 10 } },
+    session1: { title: "Session 1 (e.g., London)", show_sess1: { type: "boolean", label: "Enable Session 1", default: true }, sess1_label: { type: "text", label: "Session 1 Name", default: "London" }, sess1_time: { type: "text", label: "Session 1 Time (HHMM-HHMM)", default: "0800-1700" }, sess1_color: { type: "color", label: "Session 1 Color", default: "#66D9EF" } },
+    session2: { title: "Session 2 (e.g., New York)", show_sess2: { type: "boolean", label: "Enable Session 2", default: true }, sess2_label: { type: "text", label: "Session 2 Name", default: "New York" }, sess2_time: { type: "text", label: "Session 2 Time (HHMM-HHMM)", default: "1300-2200" }, sess2_color: { type: "color", label: "Session 2 Color", default: "#FD971F" } },
+    session3: { title: "Session 3 (e.g., Tokyo)", show_sess3: { type: "boolean", label: "Enable Session 3", default: true }, sess3_label: { type: "text", label: "Session 3 Name", default: "Tokyo" }, sess3_time: { type: "text", label: "Session 3 Time (HHMM-HHMM)", default: "0000-0900" }, sess3_color: { type: "color", label: "Session 3 Color", default: "#AE81FF" } },
+    visuals: { title: "Box & Visual Customization", box_style: { type: "select", label: "Box Style", options: ["Box","Background"], default: "Box" }, border_width: { type: "number", label: "Border Width", min: 0, max: 5, default: 1 }, box_background: { type: "boolean", label: "Fill Session Background", default: true }, bg_opacity: { type: "number", label: "Background Opacity (%)", min: 0, max: 100, default: 10 } }
+};
+
+class FXMarketSessions {
+    constructor(chart, userSettings = {}) { this.chart = chart; this.applySettings(userSettings); this.sessionBoxes = []; }
+    applySettings(custom) {
+        this.settings = {
+            timezone: custom.timezone || SESSIONS_CONFIG_SCHEMA.general.timezone.default,
+            historyPeriod: custom.history_period || SESSIONS_CONFIG_SCHEMA.general.history_period.default,
+            showSess1: custom.show_sess1 !== undefined ? custom.show_sess1 : SESSIONS_CONFIG_SCHEMA.session1.show_sess1.default,
+            sess1Label: custom.sess1_label || SESSIONS_CONFIG_SCHEMA.session1.sess1_label.default,
+            sess1Time: this.parseSessionTime(custom.sess1_time || SESSIONS_CONFIG_SCHEMA.session1.sess1_time.default),
+            sess1Color: custom.sess1_color || SESSIONS_CONFIG_SCHEMA.session1.sess1_color.default,
+            showSess2: custom.show_sess2 !== undefined ? custom.show_sess2 : SESSIONS_CONFIG_SCHEMA.session2.show_sess2.default,
+            sess2Label: custom.sess2_label || SESSIONS_CONFIG_SCHEMA.session2.sess2_label.default,
+            sess2Time: this.parseSessionTime(custom.sess2_time || SESSIONS_CONFIG_SCHEMA.session2.sess2_time.default),
+            sess2Color: custom.sess2_color || SESSIONS_CONFIG_SCHEMA.session2.sess2_color.default,
+            showSess3: custom.show_sess3 !== undefined ? custom.show_sess3 : SESSIONS_CONFIG_SCHEMA.session3.show_sess3.default,
+            sess3Label: custom.sess3_label || SESSIONS_CONFIG_SCHEMA.session3.sess3_label.default,
+            sess3Time: this.parseSessionTime(custom.sess3_time || SESSIONS_CONFIG_SCHEMA.session3.sess3_time.default),
+            sess3Color: custom.sess3_color || SESSIONS_CONFIG_SCHEMA.session3.sess3_color.default,
+            boxStyle: custom.box_style || SESSIONS_CONFIG_SCHEMA.visuals.box_style.default,
+            borderWidth: custom.border_width !== undefined ? custom.border_width : SESSIONS_CONFIG_SCHEMA.visuals.border_width.default,
+            boxBg: custom.box_background !== undefined ? custom.box_background : SESSIONS_CONFIG_SCHEMA.visuals.box_background.default,
+            bgOpacity: (custom.bg_opacity !== undefined ? custom.bg_opacity : SESSIONS_CONFIG_SCHEMA.visuals.bg_opacity.default) / 100
+        };
+    }
+    parseSessionTime(timeStr) { try { const parts = timeStr.split('-'); return { start: parseInt(parts[0], 10), end: parseInt(parts[1], 10) }; } catch (e) { return { start: 0, end: 0 }; } }
+    isTimeInSession(timestamp, sessRange) {
+        const date = new Date(timestamp * 1000);
+        const formattedTime = (date.getUTCHours() * 100) + date.getUTCMinutes();
+        if (sessRange.start <= sessRange.end) return formattedTime >= sessRange.start && formattedTime <= sessRange.end;
+        return formattedTime >= sessRange.start || formattedTime <= sessRange.end;
+    }
+    update(data, updatedSettings = null) {
+        if (updatedSettings) this.applySettings(updatedSettings);
+        this.clear();
+        if (data.length === 0) return;
+        let sessionsTrackers = [
+            { config: this.settings.showSess1, range: this.settings.sess1Time, color: this.settings.sess1Color, label: this.settings.sess1Label, active: null, items: [] },
+            { config: this.settings.showSess2, range: this.settings.sess2Time, color: this.settings.sess2Color, label: this.settings.sess2Label, active: null, items: [] },
+            { config: this.settings.showSess3, range: this.settings.sess3Time, color: this.settings.sess3Color, label: this.settings.sess3Label, active: null, items: [] }
+        ];
+        data.forEach((bar, index) => {
+            sessionsTrackers.forEach(sess => {
+                if (!sess.config) return;
+                const inSession = this.isTimeInSession(bar.time, sess.range);
+                if (inSession) {
+                    if (!sess.active) sess.active = { startIdx: index, high: bar.high, low: bar.low, startTime: bar.time };
+                    else { if (bar.high > sess.active.high) sess.active.high = bar.high; if (bar.low < sess.active.low) sess.active.low = bar.low; }
+                } else {
+                    if (sess.active) { sess.active.endIdx = index - 1; sess.active.endTime = data[index - 1].time; sess.items.push(sess.active); sess.active = null; }
+                }
+            });
+        });
+        sessionsTrackers.forEach(sess => {
+            if (sess.active) { sess.active.endIdx = data.length - 1; sess.active.endTime = data[data.length - 1].time; sess.items.push(sess.active); }
+            const visibleBlocks = sess.items.slice(-this.settings.historyPeriod);
+            this.renderSessionBlocks(visibleBlocks, sess.color, sess.label, data);
+        });
+    }
+    renderSessionBlocks(blocks, color, label, data) {
+        blocks.forEach(block => {
+            const topBoundary = this.chart.addLineSeries({ color: color, lineWidth: this.settings.borderWidth, lineStyle: 0, title: `${label} High` });
+            topBoundary.setData([{ time: block.startTime, value: block.high }, { time: block.endTime, value: block.high }]);
+            const btmBoundary = this.chart.addLineSeries({ color: color, lineWidth: this.settings.borderWidth, lineStyle: 0, title: `${label} Low` });
+            btmBoundary.setData([{ time: block.startTime, value: block.low }, { time: block.endTime, value: block.low }]);
+            this.sessionBoxes.push(topBoundary, btmBoundary);
+        });
+    }
+    clear() { this.sessionBoxes.forEach(series => { if (series && this.chart.removeSeries) { try { this.chart.removeSeries(series); } catch(e){} } }); this.sessionBoxes = []; }
+}
+
   // ---------- MODULAR CUSTOM INDICATORS REGISTRY ----------
   // Add new indicators any time via AquaIndicators.register(id, {...}) - fully dynamic, no other code needs to change.
   const AquaIndicators = (function(){
@@ -5321,12 +5549,36 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     { id:'trend_channels_liq_breaks', name:'Trend Channels + Liquidity Breaks', author:'ChartPrime', group:'Structure' },
     { id:'fib_projection_ai', name:'Fib Projection (Volume & Delta)', author:'Zeiierman', group:'Fibonacci' },
     { id:'volume_supertrend_ai', name:'Volume SuperTrend AI', author:'Zeiierman', group:'Trend' },
-    { id:'market_sessions', name:'FX Market Sessions', author:'boitoki', group:'Sessions' },
+    { id:'market_sessions', name:'FX Market Sessions', author:'boitoki', group:'Sessions',
+      onEnable(ctx){
+        const inst = new FXMarketSessions(ctx.chart, {});
+        inst.update(ctx.state.candles || []);
+        const intervalId = setInterval(() => { try { inst.update(ctx.state.candles || []); } catch(e){} }, 15000);
+        inst._intervalId = intervalId;
+        return inst;
+      },
+      onDisable(ctx, series){
+        const inst = Array.isArray(series) ? series[0] : series;
+        if(inst){ clearInterval(inst._intervalId); inst.clear(); }
+      }
+    },
     { id:'liq_sentiment_auto', name:'Liquidity Sentiment Profile (Auto-Anchored)', author:'LuxAlgo', group:'Liquidity' },
     { id:'liq_sweeps_ifvg', name:'Liquidity Sweeps & Inverse FVGs', author:'LuxAlgo', group:'Liquidity' },
     { id:'smc_pampa', name:'Smart Money Concepts', author:'Pampa', group:'Structure' },
     { id:'volume_delta_pampa', name:'Volume Delta Candles', author:'Pampa', group:'Volume' },
-    { id:'point_of_control', name:'Point of Control (POC)', author:'JohnBaron', group:'Volume' },
+    { id:'point_of_control', name:'Point of Control (POC)', author:'JohnBaron', group:'Volume',
+      onEnable(ctx){
+        const inst = new PointOfControl(ctx.chart, {});
+        inst.update(ctx.state.candles || []);
+        const intervalId = setInterval(() => { try { inst.update(ctx.state.candles || []); } catch(e){} }, 6000);
+        inst._intervalId = intervalId;
+        return inst;
+      },
+      onDisable(ctx, series){
+        const inst = Array.isArray(series) ? series[0] : series;
+        if(inst){ clearInterval(inst._intervalId); inst.clear(); }
+      }
+    },
     { id:'liq_sentiment_profile', name:'Liquidity Sentiment Profile', author:'LuxAlgo', group:'Liquidity' },
   ].forEach(d => AquaIndicators.register(d.id, d));
 
