@@ -3045,7 +3045,7 @@
     if(liqmapInited) liqmapCandleSeries.update({time:bar.time,open:bar.open,high:bar.high,low:bar.low,close:bar.close});
   }
 
-  document.getElementById('gsubTabs').addEventListener('click', e=>{
+  document.getElementById('gsubTabs')?.addEventListener('click', e=>{
     const btn = e.target.closest('.gsub-tab');
     if(!btn) return;
     const key = btn.dataset.gsub;
@@ -3112,7 +3112,7 @@
   });
 
   // ---------- UI WIRING ----------
-  document.getElementById('assetTabs').addEventListener('click', e=>{
+  document.getElementById('assetTabs')?.addEventListener('click', e=>{
     const btn = e.target.closest('.asset-tab');
     if(!btn) return;
     document.querySelectorAll('.asset-tab').forEach(b=>b.classList.remove('active'));
@@ -3132,7 +3132,7 @@
     // Live simulation + sound alerts keep running in the background regardless of which tab is open.
   });
 
-  document.getElementById('tfGroup').addEventListener('click', e=>{
+  document.getElementById('tfGroup')?.addEventListener('click', e=>{
     const btn = e.target.closest('.tf-btn');
     if(!btn) return;
     document.querySelectorAll('.tf-btn').forEach(b=>b.classList.remove('active'));
@@ -3140,7 +3140,7 @@
     loadTimeframe(parseInt(btn.dataset.tf,10));
   });
 
-  document.getElementById('indGroup').addEventListener('click', e=>{
+  document.getElementById('indGroup')?.addEventListener('click', e=>{
     const chip = e.target.closest('.ind-chip');
     if(!chip) return;
     const key = chip.dataset.ind;
@@ -3151,7 +3151,7 @@
     drawAll();
   });
 
-  document.getElementById('fvgobIndGroup').addEventListener('click', e=>{
+  document.getElementById('fvgobIndGroup')?.addEventListener('click', e=>{
     const chip = e.target.closest('.ind-chip');
     if(!chip) return;
     const key = chip.dataset.ind2;
@@ -4356,13 +4356,13 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
 
   document.getElementById('liveBtn').textContent = '■ LIVE';
   document.getElementById('liveBtn').classList.add('on');
-  document.getElementById('liveBtn').addEventListener('click', ()=>{
+  document.getElementById('liveBtn')?.addEventListener('click', ()=>{
     state.live = !state.live;
     document.getElementById('liveBtn').classList.toggle('on', state.live);
     document.getElementById('liveBtn').textContent = state.live ? '■ LIVE' : '▶ PAUSED';
     if(state.live && state.dataSource==='live') startGoldFeed(); else stopGoldFeed();
   });
-  document.getElementById('soundBtn').addEventListener('click', ()=>{
+  document.getElementById('soundBtn')?.addEventListener('click', ()=>{
     state.sound = !state.sound;
     document.getElementById('soundBtn').classList.toggle('off', !state.sound);
     document.getElementById('soundBtn').textContent = state.sound ? '🔊' : '🔇';
@@ -4609,8 +4609,8 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
   const riskModal = document.getElementById('riskModalBackdrop');
   function openRiskModal(){ riskModal.classList.add('open'); computeRisk(); }
   function closeRiskModal(){ riskModal.classList.remove('open'); }
-  document.getElementById('riskBtn').addEventListener('click', openRiskModal);
-  document.getElementById('riskModalClose').addEventListener('click', closeRiskModal);
+  document.getElementById('riskBtn')?.addEventListener('click', openRiskModal);
+  document.getElementById('riskModalClose')?.addEventListener('click', closeRiskModal);
   riskModal.addEventListener('click', e=>{ if(e.target===riskModal) closeRiskModal(); });
 
   function computeRisk(){
@@ -4677,9 +4677,9 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     }
   }
   // Persist whenever a toggle or sub-tab changes (hooked onto the existing handlers)
-  document.getElementById('indGroup').addEventListener('click', saveLayout);
-  document.getElementById('gsubTabs').addEventListener('click', saveLayout);
-  document.getElementById('tfGroup').addEventListener('click', saveLayout);
+  document.getElementById('indGroup')?.addEventListener('click', saveLayout);
+  document.getElementById('gsubTabs')?.addEventListener('click', saveLayout);
+  document.getElementById('tfGroup')?.addEventListener('click', saveLayout);
 
   // ---------- KEYBOARD SHORTCUTS ----------
   // 1-6 = timeframes, S/F/O/L/K/P/V = toggle indicators, Tab-like Q/W/E/R = sub-tabs, Space = live/pause
@@ -4713,7 +4713,7 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
   function loadDrawings(){ try{ userDrawings = JSON.parse(localStorage.getItem(DRAW_KEY))||[]; }catch(e){ userDrawings=[]; } }
   function saveDrawings(){ try{ localStorage.setItem(DRAW_KEY, JSON.stringify(userDrawings)); }catch(e){} }
 
-  document.getElementById('drawToolbar').addEventListener('click', e=>{
+  document.getElementById('drawToolbar')?.addEventListener('click', e=>{
     const btn = e.target.closest('.draw-btn');
     if(!btn) return;
     if(btn.id==='drawClearBtn'){ userDrawings=[]; saveDrawings(); drawOverlay(); return; }
@@ -4821,13 +4821,13 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     document.getElementById('replayLabel').textContent = last ? new Date(last.time*1000).toUTCString().slice(0,22)+' UTC · '+last.close.toFixed(2) : '--';
     drawOverlay();
   }
-  document.getElementById('replayBtn').addEventListener('click', enterReplay);
-  document.getElementById('replayExit').addEventListener('click', exitReplay);
-  document.getElementById('replaySlider').addEventListener('input', e=>{ replayIndex = +e.target.value; updateReplayView(); });
-  document.getElementById('replayStepFwd').addEventListener('click', ()=>{
+  document.getElementById('replayBtn')?.addEventListener('click', enterReplay);
+  document.getElementById('replayExit')?.addEventListener('click', exitReplay);
+  document.getElementById('replaySlider')?.addEventListener('input', e=>{ replayIndex = +e.target.value; updateReplayView(); });
+  document.getElementById('replayStepFwd')?.addEventListener('click', ()=>{
     if(replayIndex<replayFullCandles.length){ replayIndex++; document.getElementById('replaySlider').value=replayIndex; updateReplayView(); }
   });
-  document.getElementById('replayStepBack').addEventListener('click', ()=>{
+  document.getElementById('replayStepBack')?.addEventListener('click', ()=>{
     if(replayIndex>20){ replayIndex--; document.getElementById('replaySlider').value=replayIndex; updateReplayView(); }
   });
 
@@ -4910,7 +4910,7 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
       </tr>`;
     }).join('');
   }
-  document.getElementById('calBtn').addEventListener('click', ()=>{
+  document.getElementById('calBtn')?.addEventListener('click', ()=>{
     // Automatically switch to the full-size integrated Calendar sub-tab!
     const btn = document.querySelector('.gsub-tab[data-gsub="calendar"]');
     if (btn) btn.click();
@@ -4918,12 +4918,12 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
 
   // Calendar sync and filter wiring
   // Cloud Hub settings toggle & save listeners
-  document.getElementById('cloudHubToggleBtn').addEventListener('click', () => {
+  document.getElementById('cloudHubToggleBtn')?.addEventListener('click', () => {
     const box = document.getElementById('cloudHubSettings');
     box.style.display = box.style.display === 'none' ? 'flex' : 'none';
   });
 
-  document.getElementById('cloudSaveBtn').addEventListener('click', () => {
+  document.getElementById('cloudSaveBtn')?.addEventListener('click', () => {
     const key = document.getElementById('cloudApiKey').value.trim();
     const provider = document.getElementById('cloudApiProvider').value;
     const url = document.getElementById('cloudConfigUrl').value.trim();
@@ -4981,11 +4981,11 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
 
   // Weekly Navigation Event Listeners
   let calWeekOffset = 0;
-  document.getElementById('calPrevWeekBtn').addEventListener('click', () => {
+  document.getElementById('calPrevWeekBtn')?.addEventListener('click', () => {
     calWeekOffset--;
     updateCalendarWeekMock();
   });
-  document.getElementById('calNextWeekBtn').addEventListener('click', () => {
+  document.getElementById('calNextWeekBtn')?.addEventListener('click', () => {
     calWeekOffset++;
     updateCalendarWeekMock();
   });
@@ -5018,7 +5018,7 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     renderCalList();
   }
 
-  document.getElementById('calSyncBtn').addEventListener('click', () => {
+  document.getElementById('calSyncBtn')?.addEventListener('click', () => {
     const statusEl = document.getElementById('calSyncStatus');
     if (statusEl) statusEl.textContent = 'Status: Syncing...';
     localStorage.removeItem(CAL_CACHE_TS_KEY); // Clear TS to force refetch
@@ -5030,7 +5030,7 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     });
   });
 
-  document.getElementById('calFilterCheckbox').addEventListener('change', e => {
+  document.getElementById('calFilterCheckbox')?.addEventListener('change', e => {
     state.calShowAllCurrencies = !e.target.checked;
     localStorage.setItem('aquaCalShowAllCurrencies', JSON.stringify(state.calShowAllCurrencies));
     if (state.allFetchedCalEvents && state.allFetchedCalEvents.length > 0) {
@@ -5039,7 +5039,7 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
   });
 
   // Auto-alert checkboxes wiring
-  document.getElementById('autoAlertsSettingsGroup').addEventListener('change', e => {
+  document.getElementById('autoAlertsSettingsGroup')?.addEventListener('change', e => {
     const inp = e.target.closest('input[data-auto-alert]');
     if (inp) {
       const key = inp.dataset.autoAlert;
@@ -5056,9 +5056,9 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
       }
     }
   }
-  document.getElementById('calModalClose').addEventListener('click', ()=> document.getElementById('calModalBackdrop').classList.remove('open'));
-  document.getElementById('calModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='calModalBackdrop') document.getElementById('calModalBackdrop').classList.remove('open'); });
-  document.getElementById('calAddBtn').addEventListener('click', ()=>{
+  document.getElementById('calModalClose')?.addEventListener('click', ()=> document.getElementById('calModalBackdrop').classList.remove('open'));
+  document.getElementById('calModalBackdrop')?.addEventListener('click', e=>{ if(e.target.id==='calModalBackdrop') document.getElementById('calModalBackdrop').classList.remove('open'); });
+  document.getElementById('calAddBtn')?.addEventListener('click', ()=>{
     const name = document.getElementById('calName').value.trim();
     const timeStr = document.getElementById('calTime').value;
     const forecast = parseFloat(document.getElementById('calForecast').value);
@@ -5070,11 +5070,11 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     saveCalEvents(); renderCalList();
     document.getElementById('calName').value=''; document.getElementById('calTime').value='';
   });
-  document.getElementById('calList').addEventListener('click', e=>{
+  document.getElementById('calList')?.addEventListener('click', e=>{
     const del = e.target.closest('[data-del-cal]');
     if(del){ calEvents = calEvents.filter(ev=>ev.id!==+del.dataset.delCal); saveCalEvents(); renderCalList(); }
   });
-  document.getElementById('calList').addEventListener('input', e=>{
+  document.getElementById('calList')?.addEventListener('input', e=>{
     const inp = e.target.closest('[data-actual-for]');
     if(!inp) return;
     const ev = calEvents.find(x=>x.id===+inp.dataset.actualFor);
@@ -5085,7 +5085,7 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     }
   });
 
-  document.getElementById('calList').addEventListener('change', e=>{
+  document.getElementById('calList')?.addEventListener('change', e=>{
     const inp = e.target.closest('[data-actual-for]');
     if(!inp) return;
     const ev = calEvents.find(x=>x.id===+inp.dataset.actualFor);
@@ -5138,20 +5138,20 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
       <button class="del" data-del-alert="${a.id}">&times;</button>
     </div>`).join('');
   }
-  document.getElementById('alertBtn').addEventListener('click', ()=>{ document.getElementById('alertModalBackdrop').classList.add('open'); renderAlertList(); });
-  document.getElementById('alertModalClose').addEventListener('click', ()=> document.getElementById('alertModalBackdrop').classList.remove('open'));
-  document.getElementById('alertModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='alertModalBackdrop') document.getElementById('alertModalBackdrop').classList.remove('open'); });
-  document.getElementById('alertType').addEventListener('change', e=>{
+  document.getElementById('alertBtn')?.addEventListener('click', ()=>{ document.getElementById('alertModalBackdrop').classList.add('open'); renderAlertList(); });
+  document.getElementById('alertModalClose')?.addEventListener('click', ()=> document.getElementById('alertModalBackdrop').classList.remove('open'));
+  document.getElementById('alertModalBackdrop')?.addEventListener('click', e=>{ if(e.target.id==='alertModalBackdrop') document.getElementById('alertModalBackdrop').classList.remove('open'); });
+  document.getElementById('alertType')?.addEventListener('change', e=>{
     document.getElementById('alertPriceWrap').style.display = (e.target.value==='above'||e.target.value==='below') ? 'flex' : 'none';
   });
-  document.getElementById('alertAddBtn').addEventListener('click', ()=>{
+  document.getElementById('alertAddBtn')?.addEventListener('click', ()=>{
     const type = document.getElementById('alertType').value;
     const value = parseFloat(document.getElementById('alertPrice').value);
     if((type==='above'||type==='below') && isNaN(value)) return;
     alerts.push({id:Date.now(), type, value: isNaN(value)?null:value, fired:false});
     saveAlerts(); renderAlertList();
   });
-  document.getElementById('alertList').addEventListener('click', e=>{
+  document.getElementById('alertList')?.addEventListener('click', e=>{
     const del = e.target.closest('[data-del-alert]');
     if(del){ alerts = alerts.filter(a=>a.id!==+del.dataset.delAlert); saveAlerts(); renderAlertList(); }
   });
@@ -5202,14 +5202,14 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
       <button class="del" data-del-jr="${t.id}">&times;</button>
     </div>`).join('');
   }
-  document.getElementById('journalBtn').addEventListener('click', ()=>{
+  document.getElementById('journalBtn')?.addEventListener('click', ()=>{
     // Automatically switch to the full-size integrated Journal sub-tab!
     const btn = document.querySelector('.gsub-tab[data-gsub="journal"]');
     if (btn) btn.click();
   });
-  document.getElementById('journalModalClose').addEventListener('click', ()=> document.getElementById('journalModalBackdrop').classList.remove('open'));
-  document.getElementById('journalModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='journalModalBackdrop') document.getElementById('journalModalBackdrop').classList.remove('open'); });
-  document.getElementById('jrAddBtn').addEventListener('click', ()=>{
+  document.getElementById('journalModalClose')?.addEventListener('click', ()=> document.getElementById('journalModalBackdrop').classList.remove('open'));
+  document.getElementById('journalModalBackdrop')?.addEventListener('click', e=>{ if(e.target.id==='journalModalBackdrop') document.getElementById('journalModalBackdrop').classList.remove('open'); });
+  document.getElementById('jrAddBtn')?.addEventListener('click', ()=>{
     const dir = document.getElementById('jrDir').value;
     const entry = parseFloat(document.getElementById('jrEntry').value);
     const exit = parseFloat(document.getElementById('jrExit').value);
@@ -5221,7 +5221,7 @@ Keep answers short, trader-friendly, and grounded in Smart Money Concepts (SMC) 
     document.getElementById('jrEntry').value=''; document.getElementById('jrExit').value='';
     document.getElementById('jrResult').value=''; document.getElementById('jrNotes').value='';
   });
-  document.getElementById('jrList').addEventListener('click', e=>{
+  document.getElementById('jrList')?.addEventListener('click', e=>{
     const del = e.target.closest('[data-del-jr]');
     if(del){ journal = journal.filter(t=>t.id!==+del.dataset.delJr); saveJournal(); renderJournal(); }
   });
