@@ -5233,7 +5233,7 @@ const POC_CONFIG_SCHEMA = {
     resetTrigger: { title: "Reset Trigger", use_day: { type: "boolean", label: "Daily Reset", default: false }, use_week: { type: "boolean", label: "Weekly Reset", default: false }, bars_: { type: "number", label: "Candles Count Trigger", min: 10, max: 5000, default: 800 } },
     levels: { title: "Levels Matrix Configuration", incr_in: { type: "number", label: "Price Increment (0 = Auto)", min: 0, step: 0.0001, default: 0 }, see_suggestion: { type: "boolean", label: "Show Auto Increment Label", default: false } },
     display: { title: "Display Management Engine", show_hist: { type: "boolean", label: "Show Historic POCs", default: false }, show_grands: { type: "boolean", label: "Show Grand POC Line", default: false }, show_rank: { type: "boolean", label: "Show Next 3 Chart POCs", default: false }, show_mnmx: { type: "boolean", label: "Show Upper/Lower Bounds", default: false } },
-    styles: { title: "Style & Colors Mapping", pocColor: { type: "color", label: "Active POC Line Color", default: "#ffd54f" }, grandColor: { type: "color", label: "Grand POC Color", default: "#ff9800" }, rankColor: { type: "color", label: "Ranked POCs Color", default: "#e040fb" }, boundsColor: { type: "color", label: "Boundary Bands Color", default: "#2196f3" }, histColor: { type: "color", label: "Historical POC Color", default: "#00e5ff" } }
+    styles: { title: "Style & Colors Mapping", pocColor: { type: "color", label: "Active POC Line Color", default: "#00fff2" }, grandColor: { type: "color", label: "Grand POC Color", default: "#ff9800" }, rankColor: { type: "color", label: "Ranked POCs Color", default: "#e040fb" }, boundsColor: { type: "color", label: "Boundary Bands Color", default: "#2196f3" }, histColor: { type: "color", label: "Historical POC Color", default: "#00e5ff" } }
 };
 
 class PointOfControl {
@@ -5264,7 +5264,7 @@ class PointOfControl {
         };
     }
     initSeries() {
-        this.pocSeries = this.chart.addLineSeries({ color: this.settings.pocCol, lineWidth: 2, title: "POC" });
+        this.pocSeries = this.chart.addLineSeries({ color: this.settings.pocCol, lineWidth: 3, title: "\u26a1 Custom POC" });
         if (this.settings.showGrands) this.grandPocSeries = this.chart.addLineSeries({ color: this.settings.grandCol, lineWidth: 2, title: "Grand POC" });
         if (this.settings.showRank) {
             this.rank2Series = this.chart.addLineSeries({ color: this.settings.rankCol, lineWidth: 1, lineStyle: 3, title: "Grand POC 2" });
@@ -5493,10 +5493,17 @@ class FXMarketSessions {
           const result = def.onEnable(ctxForIndicator());
           const list = Array.isArray(result) ? result : (result ? [result] : []);
           activeSeries.set(id, list);
+          if(typeof showToast === 'function') showToast('✅ ' + def.name + ' activated and plotted on chart');
+          console.info('[Indicators] "' + def.name + '" ENABLED successfully.');
         } else {
-          console.info('[Indicators] "' + def.name + '" enabled (logic not yet wired — waiting for JS module).');
+          if(typeof showToast === 'function') showToast('⚠️ ' + def.name + ' toggle is ON, but its chart logic is not wired yet');
+          console.info('[Indicators] "' + def.name + '" toggled ON but has no onEnable logic yet.');
         }
-      } catch(e){ console.warn('[Indicators] enable failed for', id, e); }
+      } catch(e){
+        def.enabled = false;
+        if(typeof showToast === 'function') showToast('❌ ' + def.name + ' failed to activate: ' + (e && e.message ? e.message : e));
+        console.error('[Indicators] enable FAILED for', id, e);
+      }
       persistState();
       renderIndicatorsList();
     }
