@@ -5455,6 +5455,177 @@ class FXMarketSessions {
     clear() { this.sessionBoxes.forEach(series => { if (series && this.chart.removeSeries) { try { this.chart.removeSeries(series); } catch(e){} } }); this.sessionBoxes = []; }
 }
 
+  
+// ==================== VOLUME SUPERTREND AI [Zeiierman] ====================
+class VolumeSuperTrendAI {
+    constructor(chart, userSettings = {}) {
+        this.chart = chart;
+        this.applySettings(userSettings);
+        this.mainLineSeries = null;
+        this.initSeries();
+    }
+    applySettings(custom) {
+        this.settings = {
+            k: custom.k_neighbors || 3, n_: custom.n_data || 10,
+            knnPriceLen: custom.knn_price_len || 20, knnSTLen: custom.knn_st_len || 100,
+            aiSignals: custom.ai_signals !== undefined ? custom.ai_signals : true,
+            bullishSigCol: custom.bullish_signal_col || '#00ff00', bearishSigCol: custom.bearish_signal_col || '#ff0000',
+            stLength: custom.st_length || 10, stFactor: custom.st_factor || 3.0, maSource: custom.ma_source || 'WMA',
+            upCol: custom.up_col || '#00ff00', dnCol: custom.dn_col || '#ff0000', neCol: custom.ne_col || '#0000ff',
+        };
+        this.settings.n = Math.max(this.settings.k, this.settings.n_);
+    }
+    initSeries(){ this.mainLineSeries = this.chart.addLineSeries({ lineWidth: 2, title: 'Volume SuperTrend AI' }); }
+    update(data, updatedSettings = null) {
+        if (updatedSettings) { this.applySettings(updatedSettings); this.clear(); this.initSeries(); }
+        if (!data || data.length < Math.max(this.settings.stLength, this.settings.knnSTLen)) return;
+        const mainLineData = []; const markers = [];
+        const vwmaPrices = this.computeVolumeWeightedPrices(data, this.settings.stLength, this.settings.maSource);
+        const atrValues = this.computeATR(data, this.settings.stLength);
+        const superTrendStates = this.calculateSuperTrend(data, vwmaPrices, atrValues, this.settings.stFactor);
+        const priceWMA = this.computeWMA(data.map(d => d.close), this.settings.knnPriceLen);
+        const stWMA = this.computeWMA(superTrendStates.map(s => s.value), this.settings.knnSTLen);
+        let prevCol = "";
+        for (let i = this.settings.n; i < data.length; i++) {
+            const bar = data[i];
+            const windowST = superTrendStates.slice(i - this.settings.n, i).map(s => s.value);
+            const windowPriceWMA = priceWMA.slice(i - this.settings.n, i);
+            const windowSTWMA = stWMA.slice(i - this.settings.n, i);
+            const labels = [];
+            for (let j = 0; j < this.settings.n; j++) labels.push(windowPriceWMA[j] > windowSTWMA[j] ? 1 : 0);
+            const currentST = superTrendStates[i].value;
+            const aiLabel = this.knnWeightedClassifier(windowST, labels, this.settings.k, currentST);
+            let targetColor = this.settings.neCol;
+            if (aiLabel === 1) targetColor = this.settings.upCol; else if (aiLabel === 0) targetColor = this.settings.dnCol;
+            mainLineData.push({ time: bar.time, value: currentST, color: targetColor });
+            if (this.settings.aiSignals && i > 0) {
+                const currentDirection = superTrendStates[i].direction, prevDirection = superTrendStates[i - 1].direction;
+                const isStartBull = targetColor === this.settings.upCol && (prevCol !== this.settings.upCol || prevCol === this.settings.neCol);
+                const isStartBear = targetColor === this.settings.dnCol && (prevCol !== this.settings.dnCol || prevCol === this.settings.neCol);
+                if (isStartBull) markers.push({ time: bar.time, position: 'belowBar', color: this.settings.bullishSigCol, shape: 'circle', text: 'AI Bull Start' });
+                else if (isStartBear) markers.push({ time: bar.time, position: 'aboveBar', color: this.settings.bearishSigCol, shape: 'circle', text: 'AI Bear Start' });
+                if (currentDirection === -1 && prevDirection === 1 && aiLabel === 1) markers.push({ time: bar.time, position: 'belowBar', color: this.settings.bullishSigCol, shape: 'arrowUp', text: 'AI Buy' });
+                else if (currentDirection === 1 && prevDirection === -1 && aiLabel === 0) markers.push({ time: bar.time, position: 'aboveBar', color: this.settings.bearishSigCol, shape: 'arrowDown', text: 'AI Sell' });
+            }
+            prevCol = targetColor;
+        }
+        this.mainLineSeries.setData(mainLineData);
+        if (markers.length > 0) this.mainLineSeries.setMarkers(markers);
+    }
+    knnWeightedClassifier(dataArray, labelsArray, kNeighbors, targetX) {
+        const distances = [];
+        for (let i = 0; i < dataArray.length; i++) distances.push({ dist: Math.abs(targetX - dataArray[i]), label: labelsArray[i] });
+        distances.sort((a, b) => a.dist - b.dist);
+        let weightedSum = 0.0, totalWeight = 0.0;
+        for (let i = 0; i < Math.min(kNeighbors, distances.length); i++) { const item = distances[i]; const weight = 1.0 / (item.dist + 1e-6); weightedSum += weight * item.label; totalWeight += weight; }
+        const evaluation = weightedSum / (totalWeight + 1e-9);
+        return evaluation > 0.5 ? 1 : (evaluation < 0.5 ? 0 : -1);
+    }
+    computeVolumeWeightedPrices(data, len, source) {
+        const result = [];
+        for (let i = 0; i < data.length; i++) {
+            if (i < len - 1) { result.push(data[i].close); continue; }
+            let volSum = 0, priceVolSum = 0;
+            for (let j = 0; j < len; j++) { const bar = data[i - j]; const w = source === "WMA" ? (len - j) : 1; volSum += bar.volume * w; priceVolSum += (bar.close * bar.volume) * w; }
+            result.push(volSum > 0 ? (priceVolSum / volSum) : data[i].close);
+        }
+        return result;
+    }
+    computeATR(data, len) {
+        const atr = []; let trSum = 0;
+        for (let i = 0; i < data.length; i++) {
+            if (i === 0) { atr.push(data[i].high - data[i].low); continue; }
+            const tr = Math.max(data[i].high - data[i].low, Math.abs(data[i].high - data[i - 1].close), Math.abs(data[i].low - data[i - 1].close));
+            if (i < len) { trSum += tr; atr.push(trSum / (i + 1)); } else { atr.push((atr[atr.length - 1] * (len - 1) + tr) / len); }
+        }
+        return atr;
+    }
+    calculateSuperTrend(data, vwma, atr, factor) {
+        const states = []; let prevLowerBand = 0, prevUpperBand = 0, prevST = 0, direction = 1;
+        for (let i = 0; i < data.length; i++) {
+            const srcVal = vwma[i], bandOffset = factor * atr[i];
+            let lowerBand = srcVal - bandOffset, upperBand = srcVal + bandOffset;
+            if (i > 0) {
+                lowerBand = (lowerBand > prevLowerBand || data[i - 1].close < prevLowerBand) ? lowerBand : prevLowerBand;
+                upperBand = (upperBand < prevUpperBand || data[i - 1].close > prevUpperBand) ? upperBand : prevUpperBand;
+            }
+            if (i === 0) direction = 1;
+            else if (prevST === prevUpperBand) direction = data[i].close > upperBand ? -1 : 1;
+            else direction = data[i].close < lowerBand ? 1 : -1;
+            const currentST = direction === -1 ? lowerBand : upperBand;
+            states.push({ value: currentST, direction: direction });
+            prevLowerBand = lowerBand; prevUpperBand = upperBand; prevST = currentST;
+        }
+        return states;
+    }
+    computeWMA(values, len) {
+        const wma = []; let denominator = (len * (len + 1)) / 2;
+        for (let i = 0; i < values.length; i++) {
+            if (i < len - 1) { wma.push(values[i]); continue; }
+            let sum = 0; for (let j = 0; j < len; j++) sum += values[i - j] * (len - j);
+            wma.push(sum / denominator);
+        }
+        return wma;
+    }
+    clear(){ if (this.mainLineSeries) { try{ this.chart.removeSeries(this.mainLineSeries); }catch(e){} this.mainLineSeries = null; } }
+}
+
+// ==================== VOLUME DELTA CANDLES [Pampa] ====================
+class VolumeDeltaCandles {
+    constructor(chart, userSettings = {}) {
+        this.chart = chart;
+        this.applySettings(userSettings);
+        this.deltaCandleSeries = null; this.baseCandleSeries = null; this.maxVolPriceSeries = null;
+        this.initSeries();
+    }
+    applySettings(custom) {
+        this.settings = {
+            colUp: custom.col_up || '#089981', colUpNeg: custom.col_up_neg || '#f23645',
+            colDn: custom.col_dn || '#f23645', colDnPos: custom.col_dn_pos || '#089981',
+            displayMode: custom.display_mode || 'full bar', showMaxVolPrice: custom.show_max_vol_price || false,
+        };
+    }
+    initSeries() {
+        this.deltaCandleSeries = this.chart.addCandlestickSeries({ upColor: 'rgba(0,0,0,0)', downColor: 'rgba(0,0,0,0)', borderVisible: false, wickVisible: false });
+        this.baseCandleSeries = this.chart.addCandlestickSeries({ upColor: 'rgba(0,0,0,0)', downColor: 'rgba(0,0,0,0)' });
+        if (this.settings.showMaxVolPrice) this.maxVolPriceSeries = this.chart.addLineSeries({ color: '#b2b5be', lineWidth: 1, lineStyle: 2 });
+    }
+    update(data, ltfData = [], updatedSettings = null) {
+        if (updatedSettings) { this.applySettings(updatedSettings); this.clear(); this.initSeries(); }
+        if (!data || data.length === 0) return;
+        const deltaCandlesData = [], baseCandlesData = [], maxVolPriceData = [];
+        data.forEach((bar) => {
+            const totalVol = bar.volume || 0;
+            let bullV, bearV;
+            if (bar.close > bar.open) { bullV = totalVol * 0.6; bearV = totalVol * 0.4; } else { bullV = totalVol * 0.4; bearV = totalVol * 0.6; }
+            const totalVolume = bullV + bearV;
+            const delta = bullV - bearV;
+            const norm = totalVolume > 0 ? (delta / totalVolume) : 0;
+            const absNorm = Math.abs(norm);
+            const isPosDelta = norm >= 0;
+            const barAbs = Math.abs(bar.open - bar.close);
+            const barMin = Math.min(bar.open, bar.close), barMax = Math.max(bar.open, bar.close), barAvg = (bar.open + bar.close) / 2;
+            let base, value;
+            if (this.settings.displayMode === 'half bar') { value = barAvg + (norm * barAbs) / 2; base = barAvg; }
+            else { value = isPosDelta ? (barMin + absNorm * barAbs) : (barMax - absNorm * barAbs); base = isPosDelta ? barMin : barMax; }
+            let candleBodyColor;
+            if (bar.close > bar.open) candleBodyColor = norm > 0 ? this.settings.colUp : this.settings.colUpNeg;
+            else candleBodyColor = norm > 0 ? this.settings.colDnPos : this.settings.colDn;
+            const baseWickColor = bar.close > bar.open ? this.settings.colUp : this.settings.colDn;
+            deltaCandlesData.push({ time: bar.time, open: base, high: Math.max(base, value), low: Math.min(base, value), close: value, color: candleBodyColor, borderColor: candleBodyColor });
+            baseCandlesData.push({ time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close, borderColor: baseWickColor, wickColor: baseWickColor });
+            if (this.settings.showMaxVolPrice) maxVolPriceData.push({ time: bar.time, value: bar.close });
+        });
+        this.deltaCandleSeries.setData(deltaCandlesData);
+        this.baseCandleSeries.setData(baseCandlesData);
+        if (this.settings.showMaxVolPrice && this.maxVolPriceSeries) this.maxVolPriceSeries.setData(maxVolPriceData);
+    }
+    clear() {
+        [this.deltaCandleSeries, this.baseCandleSeries, this.maxVolPriceSeries].forEach(s => { if(s){ try{ this.chart.removeSeries(s); }catch(e){} } });
+        this.deltaCandleSeries = this.baseCandleSeries = this.maxVolPriceSeries = null;
+    }
+}
+
   // ---------- MODULAR CUSTOM INDICATORS REGISTRY ----------
   // Add new indicators any time via AquaIndicators.register(id, {...}) - fully dynamic, no other code needs to change.
   const AquaIndicators = (function(){
@@ -5555,7 +5726,15 @@ class FXMarketSessions {
     { id:'guardeer_smc', name:'Precision Entry System', author:'GUARDEER', group:'Structure' },
     { id:'trend_channels_liq_breaks', name:'Trend Channels + Liquidity Breaks', author:'ChartPrime', group:'Structure' },
     { id:'fib_projection_ai', name:'Fib Projection (Volume & Delta)', author:'Zeiierman', group:'Fibonacci' },
-    { id:'volume_supertrend_ai', name:'Volume SuperTrend AI', author:'Zeiierman', group:'Trend' },
+    { id:'volume_supertrend_ai', name:'Volume SuperTrend AI', author:'Zeiierman', group:'Trend',
+      onEnable(ctx){
+        const inst = new VolumeSuperTrendAI(ctx.chart, {});
+        inst.update(ctx.state.candles || []);
+        inst._intervalId = setInterval(() => { try { inst.update(ctx.state.candles || []); } catch(e){} }, 8000);
+        return inst;
+      },
+      onDisable(ctx, series){ const inst = Array.isArray(series) ? series[0] : series; if(inst){ clearInterval(inst._intervalId); inst.clear(); } }
+    },
     { id:'market_sessions', name:'FX Market Sessions', author:'boitoki', group:'Sessions',
       onEnable(ctx){
         const inst = new FXMarketSessions(ctx.chart, {});
@@ -5572,7 +5751,15 @@ class FXMarketSessions {
     { id:'liq_sentiment_auto', name:'Liquidity Sentiment Profile (Auto-Anchored)', author:'LuxAlgo', group:'Liquidity' },
     { id:'liq_sweeps_ifvg', name:'Liquidity Sweeps & Inverse FVGs', author:'LuxAlgo', group:'Liquidity' },
     { id:'smc_pampa', name:'Smart Money Concepts', author:'Pampa', group:'Structure' },
-    { id:'volume_delta_pampa', name:'Volume Delta Candles', author:'Pampa', group:'Volume' },
+    { id:'volume_delta_pampa', name:'Volume Delta Candles', author:'Pampa', group:'Volume',
+      onEnable(ctx){
+        const inst = new VolumeDeltaCandles(ctx.chart, {});
+        inst.update(ctx.state.candles || []);
+        inst._intervalId = setInterval(() => { try { inst.update(ctx.state.candles || []); } catch(e){} }, 8000);
+        return inst;
+      },
+      onDisable(ctx, series){ const inst = Array.isArray(series) ? series[0] : series; if(inst){ clearInterval(inst._intervalId); inst.clear(); } }
+    },
     { id:'point_of_control', name:'Point of Control (POC)', author:'JohnBaron', group:'Volume',
       onEnable(ctx){
         const inst = new PointOfControl(ctx.chart, {});
