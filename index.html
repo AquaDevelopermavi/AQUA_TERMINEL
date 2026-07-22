@@ -5476,16 +5476,32 @@ class VolumeSuperTrendAI {
         this.settings.n = Math.max(this.settings.k, this.settings.n_);
     }
     initSeries(){ this.mainLineSeries = this.chart.addLineSeries({ lineWidth: 2, title: 'Volume SuperTrend AI' }); }
+    // Rolling average of ATR to detect range-bound (choppy) conditions vs true trending conditions
+    computeAvgATR(atrValues, len) {
+        const avg = [];
+        let sum = 0;
+        for (let i = 0; i < atrValues.length; i++) {
+            sum += atrValues[i];
+            if (i >= len) sum -= atrValues[i - len];
+            avg.push(sum / Math.min(i + 1, len));
+        }
+        return avg;
+    }
+
     update(data, updatedSettings = null) {
         if (updatedSettings) { this.applySettings(updatedSettings); this.clear(); this.initSeries(); }
         if (!data || data.length < Math.max(this.settings.stLength, this.settings.knnSTLen)) return;
         const mainLineData = []; const markers = [];
         const vwmaPrices = this.computeVolumeWeightedPrices(data, this.settings.stLength, this.settings.maSource);
         const atrValues = this.computeATR(data, this.settings.stLength);
+        const avgATR = this.computeAvgATR(atrValues, 50); // longer-term average volatility, for range detection
         const superTrendStates = this.calculateSuperTrend(data, vwmaPrices, atrValues, this.settings.stFactor);
         const priceWMA = this.computeWMA(data.map(d => d.close), this.settings.knnPriceLen);
         const stWMA = this.computeWMA(superTrendStates.map(s => s.value), this.settings.knnSTLen);
         let prevCol = "";
+        let barsSinceLastSignal = 999;
+        const MIN_SIGNAL_GAP = 6; // suppress rapid whipsaw markers in ranges
+        const CHOP_RATIO_THRESHOLD = 0.85; // current volatility must be at least 85% of its own 50-bar average to count as "trending"
         for (let i = this.settings.n; i < data.length; i++) {
             const bar = data[i];
             const windowST = superTrendStates.slice(i - this.settings.n, i).map(s => s.value);
@@ -5498,14 +5514,23 @@ class VolumeSuperTrendAI {
             let targetColor = this.settings.neCol;
             if (aiLabel === 1) targetColor = this.settings.upCol; else if (aiLabel === 0) targetColor = this.settings.dnCol;
             mainLineData.push({ time: bar.time, value: currentST, color: targetColor });
-            if (this.settings.aiSignals && i > 0) {
+
+            barsSinceLastSignal++;
+
+            // RANGE FILTER: only trust signals when the market is actually trending (current volatility isn't compressed vs its own average)
+            const isTrendingVolatility = avgATR[i] > 0 ? (atrValues[i] / avgATR[i]) >= CHOP_RATIO_THRESHOLD : true;
+            const cooldownOk = barsSinceLastSignal >= MIN_SIGNAL_GAP;
+
+            if (this.settings.aiSignals && i > 0 && isTrendingVolatility && cooldownOk) {
                 const currentDirection = superTrendStates[i].direction, prevDirection = superTrendStates[i - 1].direction;
                 const isStartBull = targetColor === this.settings.upCol && (prevCol !== this.settings.upCol || prevCol === this.settings.neCol);
                 const isStartBear = targetColor === this.settings.dnCol && (prevCol !== this.settings.dnCol || prevCol === this.settings.neCol);
-                if (isStartBull) markers.push({ time: bar.time, position: 'belowBar', color: this.settings.bullishSigCol, shape: 'circle', text: 'AI Bull Start' });
-                else if (isStartBear) markers.push({ time: bar.time, position: 'aboveBar', color: this.settings.bearishSigCol, shape: 'circle', text: 'AI Bear Start' });
-                if (currentDirection === -1 && prevDirection === 1 && aiLabel === 1) markers.push({ time: bar.time, position: 'belowBar', color: this.settings.bullishSigCol, shape: 'arrowUp', text: 'AI Buy' });
-                else if (currentDirection === 1 && prevDirection === -1 && aiLabel === 0) markers.push({ time: bar.time, position: 'aboveBar', color: this.settings.bearishSigCol, shape: 'arrowDown', text: 'AI Sell' });
+                let fired = false;
+                if (isStartBull) { markers.push({ time: bar.time, position: 'belowBar', color: this.settings.bullishSigCol, shape: 'circle', text: 'AI Bull Start' }); fired = true; }
+                else if (isStartBear) { markers.push({ time: bar.time, position: 'aboveBar', color: this.settings.bearishSigCol, shape: 'circle', text: 'AI Bear Start' }); fired = true; }
+                if (currentDirection === -1 && prevDirection === 1 && aiLabel === 1) { markers.push({ time: bar.time, position: 'belowBar', color: this.settings.bullishSigCol, shape: 'arrowUp', text: 'AI Buy' }); fired = true; }
+                else if (currentDirection === 1 && prevDirection === -1 && aiLabel === 0) { markers.push({ time: bar.time, position: 'aboveBar', color: this.settings.bearishSigCol, shape: 'arrowDown', text: 'AI Sell' }); fired = true; }
+                if (fired) barsSinceLastSignal = 0;
             }
             prevCol = targetColor;
         }
